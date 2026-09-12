@@ -1,18 +1,22 @@
 /**
- * Form/API validation for new activities.
+ * Form/API validation for activities.
  *
- * Shared by the `/activities/new` form action and `POST /api/activities` so
- * both reject the same things with the same messages. Returns field-keyed
- * errors, which is what the form needs to render inline messages.
+ * Shared by `/activities/new`, `/activities/[id]/edit` and
+ * `POST /api/activities` so they all reject the same things with the same
+ * messages. Returns field-keyed errors, which is what the forms need to
+ * render inline messages.
  */
 
 import { parseCents } from './format';
 import {
 	isCampusId,
 	isCategoryId,
+	isStudentOnly,
+	isVisibility,
 	type CostBasis,
 	type NewActivityInput,
-	type SignupInput
+	type SignupInput,
+	type Visibility
 } from './types';
 
 export const MAX_SPOTS = 20;
@@ -24,17 +28,49 @@ export type FieldErrors = Partial<Record<keyof NewActivityInput | 'form', string
 export type ValidationResult =
 	{ ok: true; value: NewActivityInput } | { ok: false; errors: FieldErrors };
 
+/**
+ * What an edit has to respect that a fresh post doesn't: people are already
+ * in, and the start time may already be behind us.
+ */
+export interface ActivityRules {
+	/** Spots can't drop below the people already holding one. */
+	minSpots?: number;
+	/** An activity that has started can still be edited — its own date is fine. */
+	allowPastStart?: boolean;
+	/**
+	 * Whether the poster may use the student-only tiers. Checked here and not
+	 * only in the form: the API takes the same fields, and a general account
+	 * must not be able to post into the edu hub by sending JSON.
+	 */
+	student?: boolean;
+}
+
 /** Pull a trimmed string out of FormData or a JSON object. */
 function str(source: FormData | Record<string, unknown>, key: string): string {
 	const raw = source instanceof FormData ? source.get(key) : source[key];
 	return typeof raw === 'string' ? raw.trim() : '';
 }
 
-export function validateNewActivity(source: FormData | Record<string, unknown>): ValidationResult {
+/**
+ * Read a checkbox. FormData omits an unchecked box entirely and sends "on"
+ * when it's ticked; the JSON API sends a real boolean.
+ */
+function bool(source: FormData | Record<string, unknown>, key: string): boolean {
+	if (source instanceof FormData) {
+		const raw = source.get(key);
+		return raw !== null && raw !== 'false' && raw !== '';
+	}
+	return source[key] === true || source[key] === 'true' || source[key] === 'on';
+}
+
+export function validateActivity(
+	source: FormData | Record<string, unknown>,
+	rules: ActivityRules = {}
+): ValidationResult {
 	const errors: FieldErrors = {};
 
 	const title = str(source, 'title');
-	if (title.length < 4) errors.title = 'Give it a title people can scan — at least 4 characters.';
+	if (title.length < 4) errors.title = 'Give it a title people can scan. At least 4 characters.';
 	else if (title.length > MAX_TITLE) errors.title = `Keep the title under ${MAX_TITLE} characters.`;
 
 	const body = str(source, 'body');
@@ -56,7 +92,7 @@ export function validateNewActivity(source: FormData | Record<string, unknown>):
 	const parsedDate = startsAtRaw ? new Date(startsAtRaw) : null;
 	if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
 		errors.startsAt = 'Pick a date and time.';
-	} else if (parsedDate.getTime() < Date.now() - 60_000) {
+	} else if (!rules.allowPastStart && parsedDate.getTime() < Date.now() - 60_000) {
 		errors.startsAt = 'That time has already passed.';
 	} else {
 		startsAt = parsedDate.toISOString();
@@ -64,8 +100,12 @@ export function validateNewActivity(source: FormData | Record<string, unknown>):
 
 	const spotsRaw = str(source, 'spots');
 	const spots = Number(spotsRaw);
-	if (!Number.isInteger(spots) || spots < 2) {
-		errors.spots = 'You need room for at least 2 people (including you).';
+	const floor = Math.max(2, rules.minSpots ?? 0);
+	if (!Number.isInteger(spots) || spots < floor) {
+		errors.spots =
+			floor > 2
+				? `${floor} people are already in, so you can't go below that.`
+				: 'You need room for at least 2 people (including you).';
 	} else if (spots > MAX_SPOTS) {
 		errors.spots = `${MAX_SPOTS} spots is the cap.`;
 	}
@@ -76,6 +116,18 @@ export function validateNewActivity(source: FormData | Record<string, unknown>):
 
 	const costBasisRaw = str(source, 'costBasis');
 	const costBasis: CostBasis = costBasisRaw === 'total' ? 'total' : 'per-person';
+
+	// Anything unrecognised is public — the safe default is the one that
+	// doesn't silently hide someone's activity from the feed.
+	const visibilityRaw = str(source, 'visibility');
+	const visibility: Visibility = isVisibility(visibilityRaw) ? visibilityRaw : 'public';
+	const approvalRequired = bool(source, 'approvalRequired');
+
+	// Never quietly widen this to 'public': that would publish something the
+	// host meant to keep inside their school.
+	if (isStudentOnly(visibility) && rules.student === false) {
+		errors.visibility = 'Student-only activities need a verified .edu address.';
+	}
 
 	if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -90,7 +142,9 @@ export function validateNewActivity(source: FormData | Record<string, unknown>):
 			startsAt,
 			spots,
 			costCents: costCents as number,
-			costBasis
+			costBasis,
+			visibility,
+			approvalRequired
 		}
 	};
 }
@@ -115,8 +169,15 @@ export function validateLogin(
 	return { ok: true, email, password };
 }
 
+/**
+ * `isStudentEmail` decides the account's tier. Anyone may sign up; only a
+ * verified .edu address gets into the edu hub, so this is not a gate, it's a
+ * label. The caller passes the check in so validation stays free of server
+ * imports.
+ */
 export function validateSignup(
-	form: FormData
+	form: FormData,
+	isStudentEmail: (email: string) => boolean
 ): { ok: true; value: SignupInput } | { ok: false; errors: AuthErrors } {
 	const name = str(form, 'name');
 	const email = str(form, 'email').toLowerCase();
@@ -134,6 +195,13 @@ export function validateSignup(
 	// Interests are collected on /welcome, right after this.
 	return {
 		ok: true,
-		value: { name, email, campus: campus as SignupInput['campus'], password, interests: [] }
+		value: {
+			name,
+			email,
+			campus: campus as SignupInput['campus'],
+			accountType: isStudentEmail(email) ? 'student' : 'general',
+			password,
+			interests: []
+		}
 	};
 }

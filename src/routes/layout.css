@@ -34,7 +34,7 @@
 	--color-paper-500: #bdb49b;
 
 	/* Accents. */
-	--color-blush-200: #fbdce4; /* the cat's ears — Free pill */
+	--color-blush-200: #fbdce4; /* the cat's ears */
 	--color-blush-700: #b23b5e;
 	--color-acorn-400: #a8886a;
 	--color-acorn-600: #7a6047;
@@ -90,6 +90,20 @@
 	--brand-ink: #2b6a27;
 	--on-brand: #fffdf7;
 
+	/* Pill accents. Semantic, not raw palette, so they follow the dark swap:
+	   a translucent sky tint over a dark card leaves the text unreadable. */
+	--wildcard-wash: #e4eff5;
+	--wildcard-ink: #3f6d85;
+	--free-wash: #fbdce4;
+	--free-ink: #ad3859;
+
+	/* The top 1% badge: warm metal, not a flat label. */
+	--shiny-from: #f4dfa4;
+	--shiny-to: #e6c168;
+	--shiny-edge: #c9a24a;
+	--shiny-ink: #5a4212;
+	--shiny-gleam: #fffdf2;
+
 	color-scheme: light;
 }
 
@@ -115,6 +129,15 @@
 		--brand-wash: #21301e;
 		--brand-ink: #8ed483;
 		--on-brand: #11170f;
+		--wildcard-wash: #1c2a33;
+		--wildcard-ink: #9ccbe4;
+		--free-wash: #33202a;
+		--free-ink: #f2a9c0;
+		--shiny-from: #6b5520;
+		--shiny-to: #47380f;
+		--shiny-edge: #8a6f2c;
+		--shiny-ink: #f6e2ad;
+		--shiny-gleam: #fff4cf80;
 
 		color-scheme: dark;
 	}
@@ -135,6 +158,15 @@
 	--brand-wash: #21301e;
 	--brand-ink: #8ed483;
 	--on-brand: #11170f;
+	--wildcard-wash: #1c2a33;
+	--wildcard-ink: #9ccbe4;
+	--free-wash: #33202a;
+	--free-ink: #f2a9c0;
+	--shiny-from: #6b5520;
+	--shiny-to: #47380f;
+	--shiny-edge: #8a6f2c;
+	--shiny-ink: #f6e2ad;
+	--shiny-gleam: #fff4cf80;
 
 	color-scheme: dark;
 }
@@ -157,6 +189,10 @@
 	--color-brand-wash: var(--brand-wash);
 	--color-brand-ink: var(--brand-ink);
 	--color-on-brand: var(--on-brand);
+	--color-wildcard-wash: var(--wildcard-wash);
+	--color-wildcard-ink: var(--wildcard-ink);
+	--color-free-wash: var(--free-wash);
+	--color-free-ink: var(--free-ink);
 }
 
 @layer base {

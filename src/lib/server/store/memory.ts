@@ -9,18 +9,27 @@ import { verifyPassword } from '../auth';
 import { learnedInterests } from '$lib/matching';
 import { SEED_VERSION, seedData } from '../seed';
 import {
+	isSharingOpen,
+	LOCATION_TTL_SECONDS,
 	MAX_SCORE,
 	MIN_SCORE,
 	type Activity,
+	type LiveLocation,
 	type Comment,
 	type Rating,
 	type User,
 	type UserDoc
 } from '$lib/types';
 import {
+	activityUpdates,
 	campusScope,
+	canOpenActivity,
+	fallbackUser,
 	canSeeComment,
 	hostStandingFrom,
+	isListed,
+	needsApproval,
+	rankFrom,
 	ratingSummary,
 	handleBase,
 	newActivityDoc,
@@ -37,6 +46,8 @@ import type { Store, Viewer } from './types';
 interface MemoryState {
 	version: number;
 	ratings: Rating[];
+	/** Keyed "activityId:userId". Pruned on read, mirroring Mongo's TTL index. */
+	locations: Map<string, LiveLocation>;
 	users: Map<string, UserDoc>;
 	activities: Map<string, Activity>;
 	comments: Comment[];
@@ -51,6 +62,7 @@ function boot(): MemoryState {
 	return {
 		version: SEED_VERSION,
 		ratings: [],
+		locations: new Map(),
 		users: new Map(users.map((u) => [u.id, u])),
 		activities: new Map(activities.map((a) => [a.id, a])),
 		comments
@@ -100,6 +112,13 @@ export function createMemoryStore(): Store {
 	return {
 		async getUser(id) {
 			const doc = state.users.get(id);
+			return doc ? toUser(doc) : null;
+		},
+
+		async getUserByHandle(handle) {
+			const doc = [...state.users.values()].find(
+				(u) => u.handle.toLowerCase() === handle.toLowerCase()
+			);
 			return doc ? toUser(doc) : null;
 		},
 
@@ -153,7 +172,7 @@ export function createMemoryStore(): Store {
 		},
 
 		async listActivities(query = {}, viewer) {
-			let rows = [...state.activities.values()];
+			let rows = [...state.activities.values()].filter((a) => isListed(a, viewer));
 			const scope = campusScope(query, viewer);
 			if (scope) rows = rows.filter((a) => scope.includes(a.campus));
 			if (query.category) rows = rows.filter((a) => a.category === query.category);
@@ -163,7 +182,10 @@ export function createMemoryStore(): Store {
 
 		async getActivity(id, viewer) {
 			const a = state.activities.get(id);
-			return a ? view(a, viewer) : null;
+			// Student-only activities are sealed, not just unlisted: no view for
+			// someone who shouldn't have it, even holding the link.
+			if (!a || !canOpenActivity(a, viewer)) return null;
+			return view(a, viewer);
 		},
 
 		async listComments(activityId, viewerId) {
@@ -175,7 +197,9 @@ export function createMemoryStore(): Store {
 			const activity = state.activities.get(activityId);
 			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
 
-			const allowed = rows.filter((c) => canSeeComment(users.get(c.authorId), viewerId, isMember));
+			const allowed = rows.filter((c) =>
+				canSeeComment(c, users.get(c.authorId), viewerId, isMember)
+			);
 			return {
 				visible: allowed.map((c) => toCommentView(c, users)),
 				hidden: rows.length - allowed.length
@@ -197,6 +221,7 @@ export function createMemoryStore(): Store {
 		async grassLeaderboard(limit = 10) {
 			const counts = new Map<string, number>();
 			for (const a of state.activities.values()) {
+				if (!a.completedAt) continue; // only what actually happened counts
 				for (const m of a.memberIds) counts.set(m, (counts.get(m) ?? 0) + 1);
 			}
 			return [...counts.entries()]
@@ -205,16 +230,65 @@ export function createMemoryStore(): Store {
 				.slice(0, limit);
 		},
 
+		async grassRank(userId) {
+			const counts = new Map<string, number>();
+			for (const doc of state.users.values()) counts.set(doc.id, 0);
+			for (const a of state.activities.values()) {
+				if (!a.completedAt) continue;
+				for (const m of a.memberIds) counts.set(m, (counts.get(m) ?? 0) + 1);
+			}
+			return rankFrom(
+				[...counts.entries()].map(([id, score]) => ({ userId: id, score })),
+				userId
+			);
+		},
+
+		async markBadgesSeen(userId, badgeIds) {
+			const doc = state.users.get(userId);
+			if (!doc) return [];
+			const seen = new Set(doc.seenBadges ?? []);
+			const fresh = badgeIds.filter((id) => !seen.has(id));
+			if (fresh.length > 0) doc.seenBadges = [...seen, ...fresh];
+			return fresh;
+		},
+
 		async createActivity(input, hostId) {
 			const a = newActivityDoc(input, hostId);
 			state.activities.set(a.id, a);
 			return view(a, { id: hostId });
 		},
 
+		async updateActivity(id, hostId, patch) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			if (patch.spots !== undefined && patch.spots < a.memberIds.length) {
+				return { ok: false, reason: 'too-few-spots' };
+			}
+
+			Object.assign(a, activityUpdates(patch));
+			return { ok: true, activity: view(a, { id: hostId }) };
+		},
+
+		async completeActivity(id, hostId, complete = true) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			if (complete && new Date(a.startsAt).getTime() > Date.now()) {
+				return { ok: false, reason: 'not-started' };
+			}
+
+			if (complete) a.completedAt = new Date().toISOString();
+			else delete a.completedAt;
+			return { ok: true, activity: view(a, { id: hostId }) };
+		},
+
 		async joinActivity(id, userId) {
 			const a = state.activities.get(id);
 			if (!a) return { ok: false, reason: 'not-found' };
 			if (a.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			// The host vets everyone here — this has to go through the waitlist.
+			if (a.approvalRequired) return { ok: false, reason: 'needs-approval' };
 			if (a.memberIds.length >= a.spots) return { ok: false, reason: 'full' };
 			a.memberIds.push(userId);
 			return { ok: true, activity: view(a, { id: userId }) };
@@ -233,7 +307,7 @@ export function createMemoryStore(): Store {
 			const a = state.activities.get(id);
 			if (!a) return { ok: false, reason: 'not-found' };
 			if (a.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
-			if (a.memberIds.length < a.spots) return { ok: false, reason: 'not-full' };
+			if (!needsApproval(a)) return { ok: false, reason: 'open' };
 			a.waitlistIds ??= [];
 			if (a.waitlistIds.includes(userId)) return { ok: false, reason: 'already-waiting' };
 			a.waitlistIds.push(userId);
@@ -303,9 +377,62 @@ export function createMemoryStore(): Store {
 			return hostStandingFrom(hosted.length, averages);
 		},
 
-		async addComment(activityId, authorId, body) {
+		async shareLocation(activityId, userId, lat, lng) {
+			if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+				return { ok: false, reason: 'bad-position' };
+			}
+			if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+				return { ok: false, reason: 'bad-position' };
+			}
+
+			const a = state.activities.get(activityId);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (!a.memberIds.includes(userId)) return { ok: false, reason: 'not-a-member' };
+			if (!isSharingOpen(a.startsAt)) return { ok: false, reason: 'closed' };
+
+			state.locations.set(`${activityId}:${userId}`, {
+				activityId,
+				userId,
+				lat,
+				lng,
+				updatedAt: new Date().toISOString()
+			});
+			return { ok: true };
+		},
+
+		async stopSharing(activityId, userId) {
+			state.locations.delete(`${activityId}:${userId}`);
+		},
+
+		async activityLocations(activityId, viewerId) {
+			const a = state.activities.get(activityId);
+			if (!a || !a.memberIds.includes(viewerId)) return [];
+
+			// Mongo has a TTL index; here the same rule is applied on read, and
+			// expired rows are dropped so the map can't be stale either way.
+			const cutoff = Date.now() - LOCATION_TTL_SECONDS * 1000;
+			const live: LiveLocation[] = [];
+			for (const [key, row] of state.locations) {
+				if (row.activityId !== activityId) continue;
+				if (new Date(row.updatedAt).getTime() < cutoff) {
+					state.locations.delete(key);
+					continue;
+				}
+				live.push(row);
+			}
+
+			const users = usersFor(live.map((r) => r.userId));
+			return live.map((r) => ({
+				user: users.get(r.userId) ?? fallbackUser(r.userId),
+				lat: r.lat,
+				lng: r.lng,
+				updatedAt: r.updatedAt
+			}));
+		},
+
+		async addComment(activityId, authorId, body, visibility) {
 			if (!state.activities.has(activityId)) return null;
-			const c = newCommentDoc(activityId, authorId, body);
+			const c = newCommentDoc(activityId, authorId, body, visibility);
 			state.comments.push(c);
 			return toCommentView(c, usersFor([authorId]));
 		}

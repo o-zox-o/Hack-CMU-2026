@@ -3,15 +3,13 @@ import type { RequestHandler } from './$types';
 import { feedQueryFromUrl } from '$lib/feed-query';
 import { createActivity } from '$lib/server/db';
 import { listActivitiesWithSemanticSearch } from '$lib/server/semanticSearch';
-import { validateNewActivity } from '$lib/validate';
+import { validateActivity } from '$lib/validate';
+import { isStudent } from '$lib/types';
+import { viewerFrom } from '$lib/server/viewer';
 
 /** GET /api/activities?category=&campus=&q=&sort= — same filters as the feed. */
 export const GET: RequestHandler = async ({ url, locals }) => {
-	const viewer = {
-		id: locals.user.id,
-		location: locals.location,
-		interests: locals.interests
-	};
+	const viewer = viewerFrom(locals);
 	return json(await listActivitiesWithSemanticSearch(feedQueryFromUrl(url), viewer));
 };
 
@@ -28,7 +26,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ errors: { form: 'Body must be a JSON object.' } }, { status: 400 });
 	}
 
-	const result = validateNewActivity(payload as Record<string, unknown>);
+	const result = validateActivity(payload as Record<string, unknown>, {
+		student: isStudent(locals.user)
+	});
 	if (!result.ok) return json({ errors: result.errors }, { status: 400 });
 
 	return json(await createActivity(result.value, locals.user.id), { status: 201 });

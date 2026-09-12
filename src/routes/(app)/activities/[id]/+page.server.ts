@@ -1,8 +1,10 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { isCommentVisibility, type CommentVisibility } from '$lib/types';
 import {
 	addComment,
 	approveWaitlist,
+	completeActivity,
 	declineWaitlist,
 	getActivity,
 	joinActivity,
@@ -18,13 +20,10 @@ import {
 	notifyWaitlistApproved,
 	sendJoinEmails
 } from '$lib/server/email';
+import { viewerFrom } from '$lib/server/viewer';
 
 export const load = (async ({ params, locals }) => {
-	const activity = await getActivity(params.id, {
-		id: locals.user.id,
-		location: locals.location,
-		interests: locals.interests
-	});
+	const activity = await getActivity(params.id, viewerFrom(locals));
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
 	return { activity, comments: await listComments(params.id, locals.user.id) };
@@ -33,12 +32,13 @@ export const load = (async ({ params, locals }) => {
 const JOIN_MESSAGES = {
 	'not-found': 'That activity is gone.',
 	full: 'Someone grabbed the last spot just before you.',
-	'already-joined': "You're already in."
+	'already-joined': "You're already in.",
+	'needs-approval': 'The host approves everyone here, so ask to join instead.'
 } as const;
 
 const WAITLIST_MESSAGES = {
 	'not-found': 'That activity is gone.',
-	'not-full': "There's still room — you can just join.",
+	open: "There's still room and the host isn't vetting, so you can just join.",
 	'already-joined': "You're already in.",
 	'already-waiting': "You've already asked to join.",
 	'not-waiting': "You weren't on the list."
@@ -58,10 +58,16 @@ const RATE_MESSAGES = {
 	'bad-score': 'Pick between 1 and 5.'
 } as const;
 
+const COMPLETE_MESSAGES = {
+	'not-found': 'That activity is gone.',
+	'not-host': 'Only the host can do that.',
+	'not-started': "It hasn't happened yet."
+} as const;
+
 const LEAVE_MESSAGES = {
 	'not-found': 'That activity is gone.',
 	'not-a-member': "You weren't in this one.",
-	'host-cannot-leave': "You're the host — you can't leave your own activity."
+	'host-cannot-leave': "You're the host, so you can't leave your own activity."
 } as const;
 
 export const actions = {
@@ -87,7 +93,7 @@ export const actions = {
 		return { message: null };
 	},
 
-	/** Ask to join something that's already full. */
+	/** Ask the host for a spot — because it's full, or because they vet everyone. */
 	requestSpot: async ({ params, locals, url }) => {
 		const result = await joinWaitlist(params.id, locals.user.id);
 		if (!result.ok) return fail(409, { message: WAITLIST_MESSAGES[result.reason] });
@@ -136,6 +142,16 @@ export const actions = {
 		return { message: null };
 	},
 
+	/** Host confirms it happened. That's what turns it into grass for everyone. */
+	complete: async ({ request, params, locals }) => {
+		const form = await request.formData();
+		const complete = form.get('complete') !== 'false';
+
+		const result = await completeActivity(params.id, locals.user.id, complete);
+		if (!result.ok) return fail(409, { message: COMPLETE_MESSAGES[result.reason] });
+		return { message: null };
+	},
+
 	comment: async ({ request, params, locals }) => {
 		const form = await request.formData();
 		const body = String(form.get('body') ?? '').trim();
@@ -143,7 +159,18 @@ export const actions = {
 		if (body.length === 0) return fail(400, { message: 'Write something first.' });
 		if (body.length > 1000) return fail(400, { message: 'Keep comments under 1000 characters.' });
 
-		const created = await addComment(params.id, locals.user.id, body);
+		/* No explicit choice falls back to the author's profile-wide setting, so
+		   a private profile still means private comments. Defaulting everyone to
+		   'everyone' here would silently un-private every private account, which
+		   is the wrong way round for a default to be wrong. */
+		const raw = form.get('visibility');
+		const visibility: CommentVisibility = isCommentVisibility(raw)
+			? raw
+			: locals.user.isPrivate
+				? 'members'
+				: 'everyone';
+
+		const created = await addComment(params.id, locals.user.id, body, visibility);
 		if (!created) return fail(404, { message: 'That activity is gone.' });
 
 		return { message: null };

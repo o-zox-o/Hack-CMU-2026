@@ -4,16 +4,12 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import JoinButton from '$lib/components/JoinButton.svelte';
+	import LiveLocationMap from '$lib/components/LiveLocationMap.svelte';
 	import RatingBox from '$lib/components/RatingBox.svelte';
+	import ShareButton from '$lib/components/ShareButton.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
-	import {
-		formatCents,
-		formatMiles,
-		formatPrice,
-		formatWhen,
-		perPersonCents,
-		timeAgo
-	} from '$lib/format';
+	import VisibilityBadge from '$lib/components/VisibilityBadge.svelte';
+	import { costSplit, formatMiles, formatPrice, formatWhen, timeAgo } from '$lib/format';
 	import { campusMeta } from '$lib/types';
 
 	let { data, form } = $props();
@@ -21,14 +17,16 @@
 	let activity = $derived(data.activity);
 	let campus = $derived(campusMeta(activity.campus));
 
-	/* What one person actually pays, given who's in right now. */
-	let eachPays = $derived(
-		activity.costCents === 0
-			? null
-			: formatCents(perPersonCents(activity.costCents, activity.costBasis, activity.spotsTaken))
-	);
+	/* The half of the price the host didn't type, against the full spot count. */
+	let split = $derived(costSplit(activity.costCents, activity.costBasis, activity.spots));
 
 	let commentDraft = $state('');
+	/* Starts on whatever the author's profile says, so a private account sees
+	   its own setting reflected rather than having to remember it each time. */
+	// svelte-ignore state_referenced_locally
+	let commentVisibility = $state<'everyone' | 'members'>(
+		data.user?.isPrivate ? 'members' : 'everyone'
+	);
 	let posting = $state(false);
 </script>
 
@@ -63,15 +61,41 @@
 					<span>{formatMiles(activity.distanceMiles)} away</span>
 				{/if}
 				<span aria-hidden="true">·</span>
-				<span class="inline-flex items-center gap-1">
+				<a
+					href="/u/{activity.host.handle}"
+					class="inline-flex items-center gap-1 hover:text-ink hover:underline"
+				>
 					<Avatar user={activity.host} size="sm" />
 					@{activity.host.handle}
-				</span>
+				</a>
 				<span aria-hidden="true">·</span>
 				<time datetime={activity.createdAt}>{timeAgo(activity.createdAt)}</time>
+				<VisibilityBadge visibility={activity.visibility} campus={activity.campus} />
+				{#if activity.approvalRequired}
+					<span
+						class="inline-flex items-center gap-1 rounded-full bg-surface-sunk px-2 py-0.5 font-bold text-ink-soft"
+						title="The host approves everyone who joins"
+					>
+						<Icon name="check" size={11} strokeWidth={3} /> Host approves
+					</span>
+				{/if}
 			</div>
 
-			<h1 class="mt-2 text-fluid-2xl leading-tight font-extrabold text-ink">{activity.title}</h1>
+			<div class="mt-2 flex flex-wrap items-start gap-x-3 gap-y-1">
+				<h1 class="min-w-0 flex-1 text-fluid-2xl leading-tight font-extrabold text-ink">
+					{activity.title}
+				</h1>
+				<ShareButton
+					path="/activities/{activity.id}"
+					title={activity.title}
+					emphasis={activity.visibility === 'private'}
+				/>
+				{#if activity.isHost}
+					<a href="/activities/{activity.id}/edit" class="btn btn-ghost shrink-0 px-3 py-1">
+						<Icon name="pencil" size={13} /> Edit
+					</a>
+				{/if}
+			</div>
 
 			{#if activity.body}
 				<p class="mt-3 text-fluid-base whitespace-pre-line text-ink-soft">{activity.body}</p>
@@ -99,10 +123,8 @@
 						<dt class="text-fluid-xs font-bold tracking-wide text-ink-muted uppercase">Cost</dt>
 						<dd class="font-bold text-ink">
 							{formatPrice(activity.costCents, activity.costBasis)}
-							{#if eachPays && activity.costBasis === 'total'}
-								<span class="font-semibold text-ink-muted"
-									>— {eachPays} each with {activity.spotsTaken} in</span
-								>
+							{#if split}
+								<span class="block text-fluid-xs font-semibold text-ink-muted">{split}</span>
 							{/if}
 						</dd>
 					</div>
@@ -119,6 +141,25 @@
 				</div>
 			</dl>
 
+			{#if activity.isHost && (activity.visibility !== 'public' || activity.approvalRequired)}
+				<p class="mt-3 rounded-lg bg-surface-sunk px-3 py-2 text-fluid-xs text-ink-soft">
+					{#if activity.visibility === 'private'}
+						This one's private. It isn't in anyone's feed, so share the link with the people you
+						want.
+					{:else if activity.visibility === 'students'}
+						Only people with a verified .edu address can see this.
+					{:else if activity.visibility === 'campus'}
+						Only {campus.label} students can see this.
+					{/if}
+					{#if activity.approvalRequired}
+						Nobody joins until you approve them.
+					{/if}
+					<a href="/activities/{activity.id}/edit" class="font-bold text-brand-ink hover:underline">
+						Change that
+					</a>
+				</p>
+			{/if}
+
 			<!-- Who's in -->
 			<div class="mt-4">
 				<h2 class="text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
@@ -126,18 +167,27 @@
 				</h2>
 				<ul class="mt-2 flex flex-wrap gap-2">
 					{#each activity.members as member (member.id)}
-						<li
-							class="inline-flex items-center gap-1.5 rounded-full bg-surface-sunk py-1 pr-3 pl-1 text-fluid-xs font-bold"
-						>
-							<Avatar user={member} size="sm" />
-							{member.name}
-							{#if member.id === activity.host.id}
-								<span class="text-brand-ink">· host</span>
-							{/if}
+						<li>
+							<a
+								href="/u/{member.handle}"
+								class="inline-flex items-center gap-1.5 rounded-full bg-surface-sunk py-1 pr-3 pl-1 text-fluid-xs font-bold transition-colors hover:bg-surface-hover"
+							>
+								<Avatar user={member} size="sm" />
+								{member.name}
+								{#if member.id === activity.host.id}
+									<span class="text-brand-ink">· host</span>
+								{/if}
+							</a>
 						</li>
 					{/each}
 				</ul>
 			</div>
+
+			{#if activity.waitlist.length === 0 && activity.isHost && activity.approvalRequired}
+				<p class="mt-4 text-fluid-xs text-ink-muted">
+					Nobody's asked to join yet. Requests show up here for you to approve.
+				</p>
+			{/if}
 
 			{#if activity.waitlist.length > 0}
 				<div class="mt-4">
@@ -151,9 +201,11 @@
 					<ul class="mt-2 flex flex-col gap-2">
 						{#each activity.waitlist as person (person.id)}
 							<li class="flex flex-wrap items-center gap-2 rounded-lg bg-surface-sunk px-2 py-1.5">
-								<Avatar user={person} size="sm" />
-								<span class="text-fluid-sm font-bold text-ink">{person.name}</span>
-								<span class="text-fluid-xs text-ink-muted">@{person.handle}</span>
+								<a href="/u/{person.handle}" class="flex items-center gap-2 hover:underline">
+									<Avatar user={person} size="sm" />
+									<span class="text-fluid-sm font-bold text-ink">{person.name}</span>
+									<span class="text-fluid-xs text-ink-muted">@{person.handle}</span>
+								</a>
 
 								{#if activity.isHost}
 									<span class="ml-auto flex gap-1.5">
@@ -178,12 +230,67 @@
 							</li>
 						{/each}
 					</ul>
-					{#if activity.isHost && activity.isFull}
+					{#if activity.isHost}
 						<p class="mt-2 text-fluid-xs text-ink-muted">
-							You're full — approving someone adds a spot.
+							{#if activity.isFull}
+								You're full, so approving someone adds a spot. To make room for several,
+								<a
+									href="/activities/{activity.id}/edit"
+									class="font-bold text-brand-ink hover:underline"
+								>
+									raise the spot count</a
+								>.
+							{:else}
+								Approving takes one of your {activity.spotsLeft} free
+								{activity.spotsLeft === 1 ? 'spot' : 'spots'}.
+							{/if}
 						</p>
 					{/if}
 				</div>
+			{/if}
+
+			{#if activity.joined && activity.sharingOpen}
+				<div class="mt-4">
+					<LiveLocationMap {activity} meId={data.user.id} />
+				</div>
+			{/if}
+
+			<!-- Did it happen? Only the host can say, and nobody gets grass until they do. -->
+			{#if activity.isComplete}
+				<div
+					class="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-brand-wash px-3 py-2 text-fluid-sm font-bold text-brand-ink"
+				>
+					<Icon name="check" size={15} strokeWidth={3} />
+					This happened. Everyone who came got grass for it.
+					{#if activity.isHost}
+						<form method="POST" action="?/complete" class="ml-auto" use:enhance>
+							<input type="hidden" name="complete" value="false" />
+							<button
+								type="submit"
+								class="text-fluid-xs font-bold text-ink-muted hover:text-ink"
+								title="Marked it by mistake?"
+							>
+								Undo
+							</button>
+						</form>
+					{/if}
+				</div>
+			{:else if activity.isHost && activity.awaitingCompletion}
+				<div class="mt-4 rounded-lg border-2 border-brand bg-brand-wash px-3 py-2.5">
+					<p class="text-fluid-sm font-bold text-ink">Did this happen?</p>
+					<p class="mt-0.5 text-fluid-xs text-ink-soft">
+						Confirm it and everyone who came gets grass for it. Nobody's garden grows until you do.
+					</p>
+					<form method="POST" action="?/complete" class="mt-2" use:enhance>
+						<button type="submit" class="btn btn-primary">
+							<Icon name="check" size={14} strokeWidth={3} /> Mark as complete
+						</button>
+					</form>
+				</div>
+			{:else if activity.awaitingCompletion}
+				<p class="mt-4 text-fluid-xs text-ink-muted">
+					Waiting on {activity.host.name} to confirm this happened. It counts as grass once they do.
+				</p>
 			{/if}
 
 			<RatingBox {activity} />
@@ -223,7 +330,17 @@
 				bind:value={commentDraft}
 				maxlength="1000"
 				required></textarea>
-			<div class="flex justify-end">
+			<div class="flex flex-wrap items-center justify-end gap-2">
+				<label class="sr-only" for="comment-visibility">Who can see this</label>
+				<select
+					id="comment-visibility"
+					name="visibility"
+					class="field w-auto py-1.5 text-fluid-xs"
+					bind:value={commentVisibility}
+				>
+					<option value="everyone">Anyone who sees this activity</option>
+					<option value="members">Only people who joined</option>
+				</select>
 				<button
 					type="submit"
 					class="btn btn-primary"
@@ -232,12 +349,20 @@
 					{posting ? 'Posting…' : 'Comment'}
 				</button>
 			</div>
+			<p class="text-right text-fluid-xs text-ink-muted">
+				{#if commentVisibility === 'members'}
+					Only the {activity.spotsTaken}
+					{activity.spotsTaken === 1 ? 'person' : 'people'} in this activity will see it.
+				{:else}
+					Anyone who can open this activity will see it.
+				{/if}
+			</p>
 		</form>
 
 		{#if data.comments.hidden > 0}
 			<p class="mt-3 rounded-lg bg-surface-sunk px-3 py-2 text-fluid-xs text-ink-muted">
 				{data.comments.hidden}
-				{data.comments.hidden === 1 ? 'comment is' : 'comments are'} hidden — some people only share with
+				{data.comments.hidden === 1 ? 'comment is' : 'comments are'} hidden. Some people only share with
 				whoever joined. Join to see {data.comments.hidden === 1 ? 'it' : 'them'}.
 			</p>
 		{/if}
@@ -246,11 +371,22 @@
 			<ol class="mt-4 divide-y divide-hedge">
 				{#each data.comments.visible as comment (comment.id)}
 					<li class="flex gap-3 py-3">
-						<Avatar user={comment.author} />
+						<a href="/u/{comment.author.handle}"><Avatar user={comment.author} /></a>
 						<div class="min-w-0 flex-1">
-							<p class="text-fluid-xs text-ink-muted">
-								<span class="font-bold text-ink">@{comment.author.handle}</span>
-								· <time datetime={comment.createdAt}>{timeAgo(comment.createdAt)}</time>
+							<p class="flex flex-wrap items-center gap-1.5 text-fluid-xs text-ink-muted">
+								<a href="/u/{comment.author.handle}" class="font-bold text-ink hover:underline">
+									@{comment.author.handle}
+								</a>
+								<span aria-hidden="true">·</span>
+								<time datetime={comment.createdAt}>{timeAgo(comment.createdAt)}</time>
+								{#if comment.visibility === 'members'}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-surface-sunk px-2 py-0.5 font-bold text-ink-soft"
+										title="Only people who joined this activity can see this"
+									>
+										<Icon name="lock" size={10} /> Private Comments for Joined Only
+									</span>
+								{/if}
 							</p>
 							<p class="mt-0.5 text-fluid-sm whitespace-pre-line text-ink-soft">{comment.body}</p>
 						</div>

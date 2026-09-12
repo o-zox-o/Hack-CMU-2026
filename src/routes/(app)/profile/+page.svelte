@@ -5,8 +5,9 @@
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
 	import InterestPicker from '$lib/components/InterestPicker.svelte';
 	import Garden from '$lib/components/Garden.svelte';
+	import TopToucherBadge from '$lib/components/TopToucherBadge.svelte';
 	import { earnedBadges, grassStats, nextBadge } from '$lib/grass';
-	import { campusMeta } from '$lib/types';
+	import { campusMeta, isStudent } from '$lib/types';
 
 	let { data, form } = $props();
 
@@ -15,7 +16,7 @@
 	let joinedYear = $derived(new Date(user.joinedAt).getFullYear());
 
 	let stats = $derived(grassStats(data.hosting, data.joined));
-	let badgeContext = $derived({ stats, isTopToucher: data.isTopToucher });
+	let badgeContext = $derived({ stats, isTopPercent: data.rank.isTopPercent });
 	let badges = $derived(earnedBadges(badgeContext));
 	let upcomingBadge = $derived(nextBadge(badgeContext));
 </script>
@@ -35,10 +36,35 @@
 					<Avatar {user} size="lg" />
 				</span>
 				<div class="min-w-0 pt-7">
-					<h1 class="truncate text-fluid-xl font-extrabold text-ink">{user.name}</h1>
-					<p class="text-fluid-xs text-ink-muted">
-						@{user.handle} · {campusMeta(user.campus).label} · since {joinedYear}
+					<h1 class="flex flex-wrap items-center gap-2 text-fluid-xl font-extrabold text-ink">
+						<span class="truncate">{user.name}</span>
+						<TopToucherBadge rank={data.rank} mine />
+					</h1>
+					<p class="flex flex-wrap items-center gap-x-1.5 text-fluid-xs text-ink-muted">
+						<span>@{user.handle}</span>
+						<span aria-hidden="true">·</span>
+						<span>{campusMeta(user.campus).label}</span>
+						<span aria-hidden="true">·</span>
+						<span>since {joinedYear}</span>
+						{#if isStudent(user)}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-brand-wash px-2 py-0.5 font-bold text-brand-ink"
+								title="Verified .edu address, so you can see and post student-only activities"
+							>
+								<Icon name="sprout" size={11} /> Student
+							</span>
+						{:else}
+							<span
+								class="inline-flex items-center gap-1 rounded-full bg-surface-sunk px-2 py-0.5 font-bold text-ink-soft"
+								title="Sign up again with a .edu address to reach student-only activities"
+							>
+								General
+							</span>
+						{/if}
 					</p>
+					<a href="/u/{user.handle}" class="text-fluid-xs font-bold text-brand-ink hover:underline">
+						View your public profile
+					</a>
 				</div>
 			</div>
 			{#if user.bio}
@@ -71,8 +97,8 @@
 			</h2>
 			<p class="mt-1 text-fluid-sm text-ink-soft">
 				{data.standing.poorlyRated} of your activities were rated poorly by the people who went. Ratings
-				are anonymous, so there's nobody to take it up with — but showing up, being on time and charging
-				what you said you would is usually the whole of it. Keep it up and hosting may be limited.
+				are anonymous, so there's nobody to take it up with. Showing up, being on time and charging what
+				you said you would is usually the whole of it. Keep it up and hosting may be limited.
 			</p>
 		</div>
 	{:else if data.standing.average !== null}
@@ -122,6 +148,15 @@
 			<Garden score={stats.score} seed={user.id} />
 		</div>
 
+		{#if stats.awaitingHost > 0}
+			<p class="mt-2 text-fluid-xs text-ink-muted">
+				{stats.awaitingHost}
+				{stats.awaitingHost === 1 ? 'activity has' : 'activities have'} happened but
+				{stats.awaitingHost === 1 ? "haven't been" : "haven't been"} confirmed yet. They count as grass
+				once the host marks them complete.
+			</p>
+		{/if}
+
 		{#if badges.length > 0}
 			<ul class="mt-3 flex flex-wrap gap-1.5">
 				{#each badges as badge (badge.id)}
@@ -138,7 +173,7 @@
 
 		{#if upcomingBadge}
 			<p class="mt-2 text-fluid-xs text-ink-muted">
-				Next up: <span class="font-bold text-ink-soft">{upcomingBadge.label}</span> — {upcomingBadge.blurb}.
+				Next up: <span class="font-bold text-ink-soft">{upcomingBadge.label}</span>. {upcomingBadge.blurb}.
 			</p>
 		{/if}
 	</section>
@@ -151,7 +186,7 @@
 		<form method="POST" action="?/profile" class="mt-3 flex flex-col gap-4" use:enhance>
 			<div>
 				<span class="label">
-					Interests <span class="font-semibold text-brand-ink">— these build your feed</span>
+					Interests <span class="font-semibold text-brand-ink">(these build your feed)</span>
 				</span>
 				<InterestPicker selected={user.interests} />
 			</div>
@@ -160,7 +195,7 @@
 				<div>
 					<span class="label">
 						Picked up from what you join
-						<span class="font-semibold text-ink-muted">— only you see these</span>
+						<span class="font-semibold text-ink-muted">(only you see these)</span>
 					</span>
 					<ul class="flex flex-wrap gap-1.5">
 						{#each data.learned as tag (tag)}
@@ -256,7 +291,7 @@
 		</h2>
 		{#if data.joined.length === 0}
 			<div class="leaf-card px-4 py-3 text-fluid-sm text-ink-soft">
-				Nothing joined yet — <a href="/" class="font-bold text-brand-ink hover:underline"
+				Nothing joined yet. <a href="/" class="font-bold text-brand-ink hover:underline"
 					>browse the feed</a
 				>.
 			</div>

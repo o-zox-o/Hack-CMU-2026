@@ -4,13 +4,20 @@ export type Theme = 'light' | 'dark' | 'system';
 
 const KEY = 'tagalong:theme';
 
+/** What a viewer gets before they have expressed any preference. */
+const DEFAULT: Theme = 'light';
+
+function isTheme(value: unknown): value is Theme {
+	return value === 'light' || value === 'dark' || value === 'system';
+}
+
 function read(): Theme {
-	if (!browser) return 'system';
+	if (!browser) return DEFAULT;
 	try {
 		const saved = localStorage.getItem(KEY);
-		return saved === 'light' || saved === 'dark' ? saved : 'system';
+		return isTheme(saved) ? saved : DEFAULT;
 	} catch {
-		return 'system'; // private mode, blocked storage
+		return DEFAULT; // private mode, blocked storage
 	}
 }
 
@@ -19,6 +26,10 @@ function read(): Theme {
  * `data-theme` on <html>, which the token overrides in layout.css key off.
  * The same value is applied before first paint by the inline script in
  * app.html, so there is no flash on load.
+ *
+ * The default is light rather than system, so `system` has to be stored
+ * explicitly: removing the key on that choice would read back as the default
+ * on the next load, quietly turning "follow my OS" into "light".
  */
 class ThemeStore {
 	current = $state<Theme>(read());
@@ -31,8 +42,7 @@ class ThemeStore {
 		else document.documentElement.dataset.theme = next;
 
 		try {
-			if (next === 'system') localStorage.removeItem(KEY);
-			else localStorage.setItem(KEY, next);
+			localStorage.setItem(KEY, next);
 		} catch {
 			/* nothing we can do; the choice still applies for this page */
 		}

@@ -29,11 +29,11 @@
 	<div
 		class="relative h-28 w-full"
 		role="img"
-		aria-label="{stage.name} — {score} {score === 1 ? 'activity' : 'activities'}"
+		aria-label="{stage.name}: {score} {score === 1 ? 'activity' : 'activities'}"
 	>
 		{#if plants.length === 0}
 			<p class="absolute inset-0 flex items-center justify-center text-fluid-xs text-ink-muted">
-				Nothing planted yet — join something.
+				Nothing planted yet. Join something.
 			</p>
 		{/if}
 

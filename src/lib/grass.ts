@@ -1,8 +1,12 @@
 /**
- * Touch grass — the profile's progression.
+ * Touch grass: the profile's progression.
  *
- * Every activity you're part of is a blade of grass you've touched. The garden
- * on your profile grows with the count, and badges mark the milestones.
+ * Every activity that actually happened is a blade of grass you touched. The
+ * garden on your profile grows with the count, and badges mark the milestones.
+ *
+ * "Actually happened" means the host marked it complete, not just that the
+ * start time went by. Posting a plan and letting it lapse grows nothing, so
+ * the score can't be farmed by filling a calendar.
  *
  * Pure functions over ActivityView[], so the profile page, a future leaderboard
  * and any test can all use them without a database.
@@ -15,34 +19,38 @@ import type { ActivityView, CategoryId } from './types';
 /* -------------------------------------------------------------------------- */
 
 export interface GrassStats {
-	/** Everything you host or have joined. */
+	/** Completed activities. This is the number the garden grows from. */
 	score: number;
+	/** Completed activities you hosted / joined. */
 	hosted: number;
 	joined: number;
-	/** Already happened — grass genuinely touched. */
+	/** Same as `score`, named for what it means on the page. */
 	touched: number;
-	/** Still to come — planted, not yet grown. */
+	/** Signed up for, not yet confirmed as done. Planted, not grown. */
 	growing: number;
+	/**
+	 * Started, but the host hasn't confirmed it happened. Worth surfacing:
+	 * for a host these are theirs to mark, and for everyone else it explains
+	 * why something they went to isn't counted yet.
+	 */
+	awaitingHost: number;
 	byCategory: Partial<Record<CategoryId, number>>;
 }
 
-export function grassStats(
-	hosting: ActivityView[],
-	joined: ActivityView[],
-	now = Date.now()
-): GrassStats {
+export function grassStats(hosting: ActivityView[], joined: ActivityView[]): GrassStats {
 	const all = [...hosting, ...joined];
-	const past = all.filter((a) => new Date(a.startsAt).getTime() < now);
+	const done = all.filter((a) => a.isComplete);
 
 	const byCategory: Partial<Record<CategoryId, number>> = {};
-	for (const a of all) byCategory[a.category] = (byCategory[a.category] ?? 0) + 1;
+	for (const a of done) byCategory[a.category] = (byCategory[a.category] ?? 0) + 1;
 
 	return {
-		score: all.length,
-		hosted: hosting.length,
-		joined: joined.length,
-		touched: past.length,
-		growing: all.length - past.length,
+		score: done.length,
+		hosted: hosting.filter((a) => a.isComplete).length,
+		joined: joined.filter((a) => a.isComplete).length,
+		touched: done.length,
+		growing: all.length - done.length,
+		awaitingHost: all.filter((a) => a.awaitingCompletion).length,
 		byCategory
 	};
 }
@@ -98,39 +106,50 @@ export interface Badge {
 
 export interface BadgeContext {
 	stats: GrassStats;
-	/** True when this person tops the leaderboard. */
-	isTopToucher?: boolean;
+	/** True when this person is in the top slice of grass touchers. */
+	isTopPercent?: boolean;
 }
 
-const RULES: { badge: Badge; earned: (c: BadgeContext) => boolean }[] = [
+/**
+ * `standing` marks a badge that reflects where you are right now rather than
+ * something you did once. It can be lost when other people catch up, so it is
+ * never congratulated and never offered as the next one to chase.
+ */
+const RULES: { badge: Badge; standing?: boolean; earned: (c: BadgeContext) => boolean }[] = [
 	{
 		badge: {
 			id: 'top-toucher',
 			label: 'Top grass toucher',
-			blurb: 'More activities than anyone else',
+			blurb: 'In the top 1% of everyone touching grass',
 			icon: 'trophy'
 		},
-		earned: (c) => Boolean(c.isTopToucher) && c.stats.score > 0
+		standing: true,
+		earned: (c) => Boolean(c.isTopPercent) && c.stats.score > 0
 	},
 	{
 		badge: {
 			id: 'first-blade',
 			label: 'First blade',
-			blurb: 'Joined your first activity',
+			blurb: 'First activity that actually happened',
 			icon: 'sprout'
 		},
 		earned: (c) => c.stats.score >= 1
 	},
 	{
-		badge: { id: 'regular', label: 'Regular', blurb: 'Five activities in', icon: 'star' },
+		badge: { id: 'regular', label: 'Regular', blurb: 'Five activities done', icon: 'star' },
 		earned: (c) => c.stats.score >= 5
 	},
 	{
-		badge: { id: 'legend', label: 'Certified outside', blurb: 'Twenty activities', icon: 'crown' },
+		badge: {
+			id: 'legend',
+			label: 'Certified outside',
+			blurb: 'Twenty activities done',
+			icon: 'crown'
+		},
 		earned: (c) => c.stats.score >= 20
 	},
 	{
-		badge: { id: 'host', label: 'Green thumb', blurb: 'Hosted three activities', icon: 'leaf' },
+		badge: { id: 'host', label: 'Green thumb', blurb: 'Hosted three that happened', icon: 'leaf' },
 		earned: (c) => c.stats.hosted >= 3
 	},
 	{
@@ -149,6 +168,10 @@ const RULES: { badge: Badge; earned: (c: BadgeContext) => boolean }[] = [
 	{
 		badge: { id: 'driver', label: 'Designated driver', blurb: 'Three rides', icon: 'rides' },
 		earned: (c) => (c.stats.byCategory.rides ?? 0) >= 3
+	},
+	{
+		badge: { id: 'sporty', label: 'Team player', blurb: 'Three sports sessions', icon: 'sports' },
+		earned: (c) => (c.stats.byCategory.sports ?? 0) >= 3
 	}
 ];
 
@@ -156,9 +179,41 @@ export function earnedBadges(context: BadgeContext): Badge[] {
 	return RULES.filter((r) => r.earned(context)).map((r) => r.badge);
 }
 
+/**
+ * The ones you keep. These depend only on your own record, so they can be
+ * worked out without looking at anybody else, which is what makes it cheap
+ * enough to check on every page load.
+ */
+export function milestoneBadges(stats: GrassStats): Badge[] {
+	return RULES.filter((r) => !r.standing && r.earned({ stats })).map((r) => r.badge);
+}
+
 /** The nearest badge still to earn, for a "keep going" nudge. */
 export function nextBadge(context: BadgeContext): Badge | null {
-	return RULES.find((r) => !r.earned(context) && r.badge.id !== 'top-toucher')?.badge ?? null;
+	return RULES.find((r) => !r.standing && !r.earned(context))?.badge ?? null;
+}
+
+/** The line that goes in the congratulations when one lands. */
+export function badgeMessage(badge: Badge, score: number): string {
+	return `Congrats, you earned ${badge.label}! You've touched grass ${score} ${
+		score === 1 ? 'time' : 'times'
+	}.`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Standing                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** The slice that counts as "top". */
+export const TOP_SLICE = 0.01;
+
+/**
+ * How many people are in that slice. Always at least one, so the leader still
+ * stands out before the app has a hundred users: 1% of nine people is nobody,
+ * which would make the badge unreachable for the whole of a demo.
+ */
+export function topSliceSize(total: number): number {
+	return Math.max(1, Math.ceil(total * TOP_SLICE));
 }
 
 /* -------------------------------------------------------------------------- */

@@ -5,6 +5,7 @@
 	import Icon from './Icon.svelte';
 	import JoinButton from './JoinButton.svelte';
 	import SpotsMeter from './SpotsMeter.svelte';
+	import VisibilityBadge from './VisibilityBadge.svelte';
 
 	interface Props {
 		activity: ActivityView;
@@ -61,16 +62,20 @@
 				<span>{formatMiles(activity.distanceMiles)}</span>
 			{/if}
 			<span aria-hidden="true">·</span>
-			<span class="inline-flex items-center gap-1">
+			<a
+				href="/u/{activity.host.handle}"
+				class="inline-flex items-center gap-1 hover:text-ink hover:underline"
+			>
 				<Avatar user={activity.host} size="sm" />
 				<span>@{activity.host.handle}</span>
-			</span>
+			</a>
 			<span aria-hidden="true">·</span>
 			<time datetime={activity.createdAt}>{timeAgo(activity.createdAt)}</time>
+			<VisibilityBadge visibility={activity.visibility} campus={activity.campus} />
 			{#if activity.isWildcard}
 				<span
-					class="inline-flex items-center gap-1 rounded-full bg-sky-300/40 px-2 py-0.5 font-bold text-sky-700"
-					title="Not your usual thing — that's the point"
+					class="inline-flex items-center gap-1 rounded-full bg-wildcard-wash px-2 py-0.5 font-bold text-wildcard-ink"
+					title="Not your usual thing, that's the point"
 				>
 					<Icon name="sparkles" size={11} /> Wildcard
 				</span>
@@ -102,7 +107,7 @@
 			<div class="flex items-center gap-1">
 				<dt class="sr-only">Cost</dt>
 				{#if free}
-					<dd class="rounded-full bg-blush-200 px-2 py-0.5 font-bold text-blush-700">Free</dd>
+					<dd class="rounded-full bg-free-wash px-2 py-0.5 font-bold text-free-ink">Free</dd>
 				{:else}
 					<Icon name="dollar" size={14} />
 					<dd class="text-brand-ink">{formatPrice(activity.costCents, activity.costBasis)}</dd>

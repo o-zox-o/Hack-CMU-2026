@@ -6,22 +6,19 @@ import { clearSessionCookie } from '$lib/server/auth';
 import {
 	activitiesHostedBy,
 	activitiesJoinedBy,
-	grassLeaderboard,
+	grassRank,
 	hostStanding,
 	updateProfile
 } from '$lib/server/db';
 import { isInterest } from '$lib/types';
+import { viewerFrom } from '$lib/server/viewer';
 
 export const load = (async ({ locals }) => {
-	const viewer = {
-		id: locals.user.id,
-		location: locals.location,
-		interests: locals.interests
-	};
-	const [hosting, joined, leaderboard, standing] = await Promise.all([
+	const viewer = viewerFrom(locals);
+	const [hosting, joined, rank, standing] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
 		activitiesJoinedBy(locals.user.id, viewer),
-		grassLeaderboard(1),
+		grassRank(locals.user.id),
 		hostStanding(locals.user.id)
 	]);
 
@@ -33,18 +30,19 @@ export const load = (async ({ locals }) => {
 		joined,
 		learned,
 		standing,
-		/** Nobody tops an empty board, so a 0-score leader doesn't count. */
-		isTopToucher: leaderboard[0]?.userId === locals.user.id && leaderboard[0].score > 0
+		/** Placing among everyone who has touched grass, for the top 1% badge. */
+		rank
 	};
 }) satisfies PageServerLoad;
 
 export const actions = {
-
 	profile: async ({ request, locals }) => {
 		const form = await request.formData();
-		const bio = String(form.get('bio') ?? '').trim().slice(0, 300);
+		const bio = String(form.get('bio') ?? '')
+			.trim()
+			.slice(0, 300);
 
-		//Use ai.ts 
+		//Use ai.ts
 		//Merge checkboxes with AI tags, deduplicate, and limit to 12
 		const aiTags = await generateTags(bio);
 

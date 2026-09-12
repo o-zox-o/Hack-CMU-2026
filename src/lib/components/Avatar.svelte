@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { avatarSwatch } from '$lib/avatar';
 	import { initials } from '$lib/format';
 	import type { User } from '$lib/types';
 
@@ -9,19 +10,8 @@
 
 	let { user, size = 'md' }: Props = $props();
 
-	/* Warm palette — stable per user via `avatarSeed`. */
-	const PALETTE = [
-		{ bg: '#46a53c', fg: '#ffffff' }, // clover
-		{ bg: '#1a1a1a', fg: '#ffffff' }, // ink
-		{ bg: '#fbdce4', fg: '#7a1f3d' }, // blush
-		{ bg: '#d9d4c9', fg: '#1a1a1a' }, // putty
-		{ bg: '#7fa8c2', fg: '#0f1b22' }, // sky
-		{ bg: '#c9584a', fg: '#ffffff' }, // berry
-		{ bg: '#2b6a27', fg: '#ffffff' }, // deep clover
-		{ bg: '#a8886a', fg: '#ffffff' } // acorn
-	];
-
-	let swatch = $derived(PALETTE[(user.avatarSeed ?? 0) % PALETTE.length] ?? PALETTE[0]);
+	/* Shared with the live map's pins, so one person is one colour everywhere. */
+	let swatch = $derived(avatarSwatch(user.avatarSeed));
 
 	const SIZES = {
 		sm: 'h-6 w-6 text-[0.6rem]',

@@ -4,6 +4,10 @@
 
 	let { data } = $props();
 
+	/* Yours to confirm: they have started, and you're the host. Until you mark
+	   them complete nobody who came gets grass for them. */
+	let toConfirm = $derived(data.past.filter((a) => a.isHost && a.awaitingCompletion));
+
 	const TABS = [
 		{ id: 'all', label: 'All' },
 		{ id: 'hosting', label: 'Hosting' },
@@ -54,7 +58,7 @@
 				{:else if data.filter === 'joined'}
 					You haven't joined anything yet.
 				{:else}
-					Join something from the feed, or post your own — it'll show up here.
+					Join something from the feed, or post your own. It'll show up here.
 				{/if}
 			</p>
 			<div class="mt-1 flex gap-2">
@@ -84,6 +88,23 @@
 			<h2 class="px-1 text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
 				Past
 			</h2>
+			{#if toConfirm.length > 0}
+				<p class="rounded-lg bg-brand-wash px-3 py-2 text-fluid-xs text-ink-soft">
+					<span class="font-extrabold text-ink">
+						{toConfirm.length}
+						{toConfirm.length === 1 ? 'activity is' : 'activities are'} waiting on you.
+					</span>
+					Open
+					{#each toConfirm.slice(0, 3) as a, i (a.id)}
+						{#if i > 0},{/if}
+						<a href="/activities/{a.id}" class="font-bold text-brand-ink hover:underline"
+							>{a.title}</a
+						>
+					{/each}
+					{#if toConfirm.length > 3}and {toConfirm.length - 3} more{/if}
+					to confirm {toConfirm.length === 1 ? 'it' : 'they'} happened. Nobody gets grass until you do.
+				</p>
+			{/if}
 			<ul class="flex flex-col gap-3 opacity-65">
 				{#each data.past as activity (activity.id)}
 					<li><ActivityCard {activity} /></li>

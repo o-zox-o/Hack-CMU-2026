@@ -14,23 +14,30 @@ import { verifyPassword } from '../auth';
 import { learnedInterests } from '$lib/matching';
 import { seedData } from '../seed';
 import {
+	isSharingOpen,
+	isStudent,
+	LOCATION_TTL_SECONDS,
 	MAX_SCORE,
 	MIN_SCORE,
 	type Activity,
+	type Visibility,
 	type Comment,
 	type Rating,
 	type User,
 	type UserDoc
 } from '$lib/types';
 import {
+	activityUpdates,
 	campusScope,
 	canSeeComment,
+	fallbackUser,
 	hostStandingFrom,
 	ratingSummary,
 	handleBase,
 	newActivityDoc,
 	newCommentDoc,
 	newUserDoc,
+	rankFrom,
 	referencedUserIds,
 	searchAndSort,
 	toCommentView,
@@ -45,6 +52,15 @@ type UserRow = Row<UserDoc>;
 type ActivityRow = Row<Activity>;
 type CommentRow = Row<Comment>;
 type RatingRow = Row<Rating>;
+/* Not a Row<>: it has no id of its own, and `updatedAt` must be a real Date
+   for the TTL index to act on it. */
+type LocationRow = {
+	activityId: string;
+	userId: string;
+	lat: number;
+	lng: number;
+	updatedAt: Date;
+};
 
 const toRow = <T extends { id: string }>({ id, ...rest }: T): Row<T> => ({ _id: id, ...rest });
 const fromRow = <T extends { id: string }>({ _id, ...rest }: Row<T>): T =>
@@ -68,7 +84,16 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		db
 			.collection<RatingRow>('ratings')
 			.createIndex({ activityId: 1, raterId: 1 }, { unique: true }),
-		db.collection<RatingRow>('ratings').createIndex({ hostId: 1 })
+		db.collection<RatingRow>('ratings').createIndex({ hostId: 1 }),
+		db
+			.collection<LocationRow>('locations')
+			.createIndex({ activityId: 1, userId: 1 }, { unique: true }),
+		// The safety property: a point nobody refreshes disappears on its own,
+		// so a closed tab or a lost signal ends the sharing without anyone
+		// having to remember to stop it.
+		db
+			.collection<LocationRow>('locations')
+			.createIndex({ updatedAt: 1 }, { expireAfterSeconds: LOCATION_TTL_SECONDS })
 	]);
 
 	// Seed per collection, not all-or-nothing: a database that already has real
@@ -126,6 +151,28 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 	return db;
 }
 
+/**
+ * The $or clauses that mean "this viewer may see it in the feed" — the query
+ * form of isListed() in shared.ts. Legacy docs have no `visibility` field and
+ * count as public.
+ */
+function visibleToClauses(viewer?: Viewer): Filter<ActivityRow>[] {
+	const open: Visibility[] = ['public'];
+	if (isStudent(viewer)) open.push('students');
+
+	return [
+		{ visibility: { $in: open } },
+		{ visibility: { $exists: false } },
+		...(isStudent(viewer) && viewer?.campus
+			? [{ visibility: 'campus' as const, campus: viewer.campus }]
+			: []),
+		// Already involved: always visible, whatever it was changed to since.
+		...(viewer?.id
+			? [{ hostId: viewer.id }, { memberIds: viewer.id }, { waitlistIds: viewer.id }]
+			: [])
+	];
+}
+
 export function createMongoStore(uri: string, dbName: string): Store {
 	const db = () => (globalThis.__tagalongMongo ??= connect(uri, dbName));
 	const users = async (): Promise<Collection<UserRow>> => (await db()).collection('users');
@@ -133,6 +180,8 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		(await db()).collection('activities');
 	const comments = async (): Promise<Collection<CommentRow>> => (await db()).collection('comments');
 	const ratings = async (): Promise<Collection<RatingRow>> => (await db()).collection('ratings');
+	const locations = async (): Promise<Collection<LocationRow>> =>
+		(await db()).collection('locations');
 
 	/* One query for every user a batch of activities refers to. */
 	const usersFor = async (ids: string[]): Promise<Map<string, User>> => {
@@ -189,6 +238,12 @@ export function createMongoStore(uri: string, dbName: string): Store {
 	return {
 		async getUser(id) {
 			const row = await (await users()).findOne({ _id: id });
+			return row ? toUser(fromRow<UserDoc>(row)) : null;
+		},
+
+		async getUserByHandle(handle) {
+			// Handles are stored lowercase, and the index is unique on them.
+			const row = await (await users()).findOne({ handle: handle.toLowerCase() });
 			return row ? toUser(fromRow<UserDoc>(row)) : null;
 		},
 
@@ -269,7 +324,8 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		},
 
 		async listActivities(query = {}, viewer) {
-			const filter: Filter<ActivityRow> = {};
+			// The query form of isListed() in shared.ts. Keep the two in step.
+			const filter: Filter<ActivityRow> = { $or: visibleToClauses(viewer) };
 			const scope = campusScope(query, viewer);
 			if (scope) filter.campus = { $in: scope as ActivityRow['campus'][] };
 			if (query.category) filter.category = query.category;
@@ -285,7 +341,15 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		},
 
 		async getActivity(id, viewer) {
-			const row = await (await activities()).findOne({ _id: id });
+			// Private is unlisted but openable, so it's allowed here even though
+			// visibleToClauses() keeps it out of the feed. The student-only tiers
+			// are sealed and stay excluded.
+			const row = await (
+				await activities()
+			).findOne({
+				_id: id,
+				$or: [...visibleToClauses(viewer), { visibility: 'private' }]
+			});
 			return row ? view(row, viewer) : null;
 		},
 
@@ -300,7 +364,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
 
 			const allowed = docs.filter((c) =>
-				canSeeComment(userMap.get(c.authorId), viewerId, isMember)
+				canSeeComment(c, userMap.get(c.authorId), viewerId, isMember)
 			);
 			return {
 				visible: allowed.map((c) => toCommentView(c, userMap)),
@@ -331,6 +395,8 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		async grassLeaderboard(limit = 10) {
 			return (await activities())
 				.aggregate<{ userId: string; score: number }>([
+					// Only what actually happened counts.
+					{ $match: { completedAt: { $exists: true, $ne: null } } },
 					{ $unwind: '$memberIds' },
 					{ $group: { _id: '$memberIds', score: { $sum: 1 } } },
 					{ $sort: { score: -1, _id: 1 } },
@@ -340,10 +406,93 @@ export function createMongoStore(uri: string, dbName: string): Store {
 				.toArray();
 		},
 
+		async grassRank(userId) {
+			// Small tables, so pull the whole column and rank in process rather
+			// than trying to express competition ranking in the pipeline.
+			const scores = await (
+				await activities()
+			)
+				.aggregate<{ userId: string; score: number }>([
+					{ $match: { completedAt: { $exists: true, $ne: null } } },
+					{ $unwind: '$memberIds' },
+					{ $group: { _id: '$memberIds', score: { $sum: 1 } } },
+					{ $project: { _id: 0, userId: '$_id', score: 1 } }
+				])
+				.toArray();
+			return rankFrom(scores, userId);
+		},
+
+		/**
+		 * One conditional update per badge, and modifiedCount is the answer:
+		 * the filter only matches while the id is absent, so exactly one caller
+		 * can flip it. A read-then-write would let two tabs both celebrate.
+		 * The list is one or two ids in practice, so the loop is free.
+		 */
+		async markBadgesSeen(userId, badgeIds) {
+			const col = await users();
+			const claimed: string[] = [];
+
+			for (const id of badgeIds) {
+				const res = await col.updateOne(
+					{ _id: userId, seenBadges: { $ne: id } },
+					{ $addToSet: { seenBadges: id } }
+				);
+				if (res.modifiedCount === 1) claimed.push(id);
+			}
+			return claimed;
+		},
+
 		async createActivity(input, hostId) {
 			const doc = newActivityDoc(input, hostId);
 			await (await activities()).insertOne(toRow(doc));
 			return view(toRow(doc), { id: hostId });
+		},
+
+		/**
+		 * The spots floor is in the filter, not a read-then-write: someone
+		 * joining at the same moment must not end up outside the new capacity.
+		 */
+		async updateActivity(id, hostId, patch) {
+			const $set = activityUpdates(patch);
+			const col = await activities();
+
+			const capacity =
+				patch.spots === undefined
+					? {}
+					: { $expr: { $lte: [{ $size: '$memberIds' }, patch.spots] } };
+
+			const updated = await col.findOneAndUpdate(
+				{ _id: id, hostId, ...capacity },
+				{ $set },
+				{ returnDocument: 'after' }
+			);
+			if (updated) return { ok: true, activity: await view(updated, { id: hostId }) };
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'too-few-spots' };
+		},
+
+		async completeActivity(id, hostId, complete = true) {
+			const col = await activities();
+
+			// "Has it started?" belongs in the filter so the clock can't move
+			// between the read and the write.
+			const started = complete ? { startsAt: { $lte: new Date().toISOString() } } : {};
+			const update = complete
+				? { $set: { completedAt: new Date().toISOString() } }
+				: { $unset: { completedAt: '' as const } };
+
+			const updated = await col.findOneAndUpdate({ _id: id, hostId, ...started }, update, {
+				returnDocument: 'after'
+			});
+			if (updated) return { ok: true, activity: await view(updated, { id: hostId }) };
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'not-started' };
 		},
 
 		/**
@@ -356,6 +505,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 				{
 					_id: id,
 					memberIds: { $ne: userId },
+					approvalRequired: { $ne: true },
 					$expr: { $lt: [{ $size: '$memberIds' }, '$spots'] }
 				},
 				{ $push: { memberIds: userId } },
@@ -367,6 +517,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			const current = await col.findOne({ _id: id });
 			if (!current) return { ok: false, reason: 'not-found' };
 			if (current.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			if (current.approvalRequired) return { ok: false, reason: 'needs-approval' };
 			return { ok: false, reason: 'full' };
 		},
 
@@ -385,7 +536,11 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return { ok: false, reason: 'not-a-member' };
 		},
 
-		/** Only joins the queue when it really is full — checked in the filter. */
+		/**
+		 * Only queues when the host actually has a say — they vet everyone, or
+		 * it's full. Checked in the filter so a spot opening up mid-request
+		 * doesn't leave someone waiting on a door that's already open.
+		 */
 		async joinWaitlist(id, userId) {
 			const col = await activities();
 			const updated = await col.findOneAndUpdate(
@@ -393,7 +548,10 @@ export function createMongoStore(uri: string, dbName: string): Store {
 					_id: id,
 					memberIds: { $ne: userId },
 					waitlistIds: { $ne: userId },
-					$expr: { $gte: [{ $size: '$memberIds' }, '$spots'] }
+					$or: [
+						{ approvalRequired: true },
+						{ $expr: { $gte: [{ $size: '$memberIds' }, '$spots'] } }
+					]
 				},
 				{ $push: { waitlistIds: userId } },
 				{ returnDocument: 'after' }
@@ -405,7 +563,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			if (current.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
 			if ((current.waitlistIds ?? []).includes(userId))
 				return { ok: false, reason: 'already-waiting' };
-			return { ok: false, reason: 'not-full' };
+			return { ok: false, reason: 'open' };
 		},
 
 		async leaveWaitlist(id, userId) {
@@ -520,10 +678,63 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			);
 		},
 
-		async addComment(activityId, authorId, body) {
+		async shareLocation(activityId, userId, lat, lng) {
+			if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+				return { ok: false, reason: 'bad-position' };
+			}
+			if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+				return { ok: false, reason: 'bad-position' };
+			}
+
+			const activity = await (
+				await activities()
+			).findOne({ _id: activityId }, { projection: { memberIds: 1, startsAt: 1 } });
+			if (!activity) return { ok: false, reason: 'not-found' };
+			if (!activity.memberIds.includes(userId)) return { ok: false, reason: 'not-a-member' };
+			if (!isSharingOpen(activity.startsAt)) return { ok: false, reason: 'closed' };
+
+			await (
+				await locations()
+			).updateOne(
+				{ activityId, userId },
+				{ $set: { lat, lng, updatedAt: new Date() } },
+				{ upsert: true }
+			);
+			return { ok: true };
+		},
+
+		async stopSharing(activityId, userId) {
+			await (await locations()).deleteOne({ activityId, userId });
+		},
+
+		async activityLocations(activityId, viewerId) {
+			const activity = await (
+				await activities()
+			).findOne({ _id: activityId }, { projection: { memberIds: 1 } });
+			if (!activity || !activity.memberIds.includes(viewerId)) return [];
+
+			// The TTL monitor only sweeps once a minute, so the cutoff is applied
+			// here too. A stale point must never reach the map.
+			const cutoff = new Date(Date.now() - LOCATION_TTL_SECONDS * 1000);
+			const rows = await (
+				await locations()
+			)
+				.find({ activityId, updatedAt: { $gte: cutoff } })
+				.toArray();
+
+			const users = await usersFor(rows.map((r) => r.userId));
+			return rows.map((r) => ({
+				user: users.get(r.userId) ?? fallbackUser(r.userId),
+				lat: r.lat,
+				lng: r.lng,
+				updatedAt: r.updatedAt.toISOString()
+			}));
+		},
+
+		async addComment(activityId, authorId, body, visibility) {
 			const exists = await (await activities()).countDocuments({ _id: activityId }, { limit: 1 });
 			if (!exists) return null;
-			const doc = newCommentDoc(activityId, authorId, body);
+			const doc = newCommentDoc(activityId, authorId, body, visibility);
 			await (await comments()).insertOne(toRow(doc));
 			return toCommentView(doc, await usersFor([authorId]));
 		}

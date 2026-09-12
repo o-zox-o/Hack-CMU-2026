@@ -23,7 +23,7 @@
 	type="button"
 	class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hedge-strong px-2.5 py-1.5 text-ink transition-colors hover:border-brand hover:bg-brand-wash hover:text-brand-ink"
 	onclick={() => theme.cycle()}
-	title="Theme: {current.label} — click to change"
+	title="Theme: {current.label}, click to change"
 	aria-label="Theme: {current.label}. Click to change."
 >
 	{#each LOOK as look (look.id)}

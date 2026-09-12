@@ -13,10 +13,12 @@ import type { Store } from './store/types';
 export { DEMO_PASSWORD } from './seed';
 export type {
 	ApprovalResult,
+	CompleteResult,
 	JoinResult,
 	LeaveResult,
 	ProfilePatch,
 	SignupResult,
+	UpdateResult,
 	Viewer,
 	WaitlistResult
 } from './store/types';
@@ -35,6 +37,7 @@ console.log(
 
 export const {
 	getUser,
+	getUserByHandle,
 	getSessionUser,
 	refreshLearnedInterests,
 	getUserEmail,
@@ -47,7 +50,11 @@ export const {
 	activitiesHostedBy,
 	activitiesJoinedBy,
 	grassLeaderboard,
+	grassRank,
+	markBadgesSeen,
 	createActivity,
+	updateActivity,
+	completeActivity,
 	joinActivity,
 	leaveActivity,
 	joinWaitlist,
@@ -55,6 +62,9 @@ export const {
 	approveWaitlist,
 	declineWaitlist,
 	addComment,
+	shareLocation,
+	stopSharing,
+	activityLocations,
 	rateActivity,
 	hostStanding
 } = store;

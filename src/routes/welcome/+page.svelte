@@ -45,7 +45,7 @@
 		<div>
 			<span class="label">
 				What are you into?
-				<span class="font-semibold text-brand-ink">— this builds your feed</span>
+				<span class="font-semibold text-brand-ink">(this builds your feed)</span>
 			</span>
 			<InterestPicker />
 		</div>

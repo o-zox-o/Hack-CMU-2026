@@ -3,10 +3,11 @@ import { generateTags } from '$lib/server/ai';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createActivity } from '$lib/server/db';
-import { validateNewActivity } from '$lib/validate';
+import { validateActivity } from '$lib/validate';
+import { isStudent } from '$lib/types';
 
 export const load = (({ locals }) => {
-	return { defaultCampus: locals.user.campus };
+	return { defaultCampus: locals.user.campus, student: isStudent(locals.user) };
 }) satisfies PageServerLoad;
 
 const FIELDS = [
@@ -18,19 +19,25 @@ const FIELDS = [
 	'startsAt',
 	'spots',
 	'cost',
-	'costBasis'
+	'costBasis',
+	'visibility'
 ] as const;
 
 export const actions = {
 	default: async ({ request, locals }) => {
 		const form = await request.formData();
-		const result = validateNewActivity(form);
+		const result = validateActivity(form, { student: isStudent(locals.user) });
 
 		if (!result.ok) {
 			// Echo the typed values back so the form doesn't blank on error.
-			const values = Object.fromEntries(
-				FIELDS.map((key) => [key, String(form.get(key) ?? '')])
-			) as Record<(typeof FIELDS)[number], string>;
+			const values = {
+				...(Object.fromEntries(FIELDS.map((key) => [key, String(form.get(key) ?? '')])) as Record<
+					(typeof FIELDS)[number],
+					string
+				>),
+				// An unticked checkbox isn't in the form data at all.
+				approvalRequired: form.get('approvalRequired') !== null
+			};
 
 			return fail(400, { errors: result.errors, values });
 		}

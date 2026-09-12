@@ -75,7 +75,7 @@
 			{#if status === 'asking'}
 				Locating…
 			{:else if status === 'denied'}
-				Location blocked — try again
+				Location blocked, try again
 			{:else if status === 'unsupported'}
 				Location unavailable here
 			{:else}

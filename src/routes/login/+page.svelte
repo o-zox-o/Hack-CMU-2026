@@ -36,6 +36,9 @@
 
 	let actionQuery = $derived(data.next === '/' ? '' : `&next=${encodeURIComponent(data.next)}`);
 
+	/* Only a hint while typing; the server decides the real account tier. */
+	let looksLikeStudent = $derived(/\.edu$/i.test(email.trim()));
+
 	const tab = 'flex-1 rounded-md py-1.5 text-center text-fluid-sm font-bold transition-colors';
 </script>
 
@@ -91,8 +94,8 @@
 		</h1>
 		<p class="mt-0.5 text-fluid-sm text-ink-soft">
 			{#if mode === 'signup' && step === 'verify'}
-				We sent a code to <span class="font-bold text-ink">{form?.email}</span> — enter it below to finish
-				creating your account.
+				We sent a code to <span class="font-bold text-ink">{form?.email}</span>. Enter it below to
+				finish creating your account.
 			{:else if mode === 'signup'}
 				Post what you’re doing anyway and let your campus tag along.
 			{:else}
@@ -193,6 +196,15 @@
 						autocomplete="email"
 						required
 					/>
+					{#if mode === 'signup'}
+						<p class="mt-1 text-fluid-xs text-ink-muted">
+							{#if looksLikeStudent}
+								A .edu address gets you into the student hub, plus everything else.
+							{:else}
+								Anyone can join. Use a .edu address to also see student-only activities.
+							{/if}
+						</p>
+					{/if}
 					{#if errors.email}<p class="mt-1 text-fluid-xs font-bold text-berry-500">
 							{errors.email}
 						</p>{/if}
@@ -243,7 +255,7 @@
 		{#if data.demo}
 			<p class="mt-5 border-t border-hedge pt-4 text-fluid-xs text-ink-muted">
 				<span class="font-bold">Dev:</span> every seeded account uses
-				<code class="rounded bg-surface-sunk px-1">{data.demo.password}</code> — e.g.
+				<code class="rounded bg-surface-sunk px-1">{data.demo.password}</code>, e.g.
 				<button
 					type="button"
 					class="font-bold text-brand-ink hover:underline"

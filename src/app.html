@@ -12,11 +12,17 @@
 			rel="stylesheet"
 		/>
 		<script>
-			// Apply the saved theme before first paint so there's no flash.
+			// Apply the theme before first paint so there's no flash. Light is the
+			// default, so an unset preference stamps light rather than falling
+			// through to prefers-color-scheme. Only an explicit "system" leaves the
+			// attribute off and lets the OS decide.
 			try {
 				const t = localStorage.getItem('tagalong:theme');
-				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-			} catch {}
+				if (t !== 'system')
+					document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+			} catch {
+				document.documentElement.dataset.theme = 'light';
+			}
 		</script>
 		%sveltekit.head%
 	</head>
