@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { formatMiles } from '$lib/format';
-	import Icon from './Icon.svelte';
 	import LocationSync from './LocationSync.svelte';
 
 	interface Props {
@@ -37,9 +36,6 @@
 			<div class="mt-3">
 				<LocationSync source={locationSource} variant="button" />
 			</div>
-			<a href="/activities/new" class="btn btn-primary mt-4 w-full">
-				<Icon name="plus" size={14} strokeWidth={3} /> Post an activity
-			</a>
 		</div>
 	</section>
 

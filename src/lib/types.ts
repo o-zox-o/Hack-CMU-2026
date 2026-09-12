@@ -273,6 +273,11 @@ export interface Activity {
 	startsAt: string;
 	spots: number;
 	memberIds: string[];
+	/**
+	 * People who asked to join after it filled up, oldest request first.
+	 * Optional so activities stored before waitlists existed still parse.
+	 */
+	waitlistIds?: string[];
 	costCents: number;
 	costBasis: CostBasis;
 	createdAt: string;
@@ -294,6 +299,8 @@ export interface ActivityView {
 	createdAt: string;
 	host: User;
 	members: User[];
+	/** Pending requests, oldest first. Only the host acts on these. */
+	waitlist: User[];
 	commentCount: number;
 
 	/* Pre-derived fields */
@@ -304,6 +311,8 @@ export interface ActivityView {
 	spotsLeft: number;
 	isFull: boolean;
 	joined: boolean;
+	/** Has the current viewer asked to join a full activity? */
+	onWaitlist: boolean;
 	isHost: boolean;
 	interests: string[];
 }

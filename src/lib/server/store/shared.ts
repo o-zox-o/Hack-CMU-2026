@@ -87,6 +87,7 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 		startsAt: input.startsAt,
 		spots: input.spots,
 		memberIds: [hostId], // the host occupies one spot
+		waitlistIds: [],
 		costCents: input.costCents,
 		costBasis: input.costBasis,
 		// Untagged activities inherit their category's tags so they can still
@@ -112,6 +113,7 @@ export function referencedUserIds(rows: Activity[]): string[] {
 	for (const a of rows) {
 		ids.add(a.hostId);
 		for (const m of a.memberIds) ids.add(m);
+		for (const w of a.waitlistIds ?? []) ids.add(w);
 	}
 	return [...ids];
 }
@@ -141,6 +143,7 @@ export function toView(
 		createdAt: activity.createdAt,
 		host: user(activity.hostId),
 		members: activity.memberIds.map(user),
+		waitlist: (activity.waitlistIds ?? []).map(user),
 		commentCount,
 		distanceMiles: viewer?.location ? distanceToCampus(viewer.location, activity.campus) : null,
 		matchPercent: matchPercent(
@@ -151,6 +154,7 @@ export function toView(
 		spotsLeft: Math.max(0, activity.spots - spotsTaken),
 		isFull: spotsTaken >= activity.spots,
 		joined: viewerId ? activity.memberIds.includes(viewerId) : false,
+		onWaitlist: viewerId ? (activity.waitlistIds ?? []).includes(viewerId) : false,
 		isHost: viewerId ? activity.hostId === viewerId : false,
 		interests: activity.interests
 	};

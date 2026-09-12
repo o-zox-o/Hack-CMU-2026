@@ -57,9 +57,14 @@
 			</label>
 		</form>
 
-		<a href="/activities/new" class="btn btn-primary shrink-0 px-3 sm:px-4" title="New activity">
+		<!-- Desktop only: below md the mobile tab bar carries the create action. -->
+		<a
+			href="/activities/new"
+			class="btn btn-primary hidden shrink-0 px-4 md:inline-flex"
+			title="New activity"
+		>
 			<Icon name="plus" size={16} strokeWidth={3} />
-			<span class="hidden sm:inline">Create</span>
+			Create
 		</a>
 
 		<ThemeToggle />
