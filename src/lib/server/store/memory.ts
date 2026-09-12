@@ -6,6 +6,7 @@
  */
 
 import { verifyPassword } from '../auth';
+import { learnedInterests } from '$lib/matching';
 import { SEED_VERSION, seedData } from '../seed';
 import type { Activity, Comment, User, UserDoc } from '$lib/types';
 import {
@@ -73,6 +74,24 @@ export function createMemoryStore(): Store {
 		async getUser(id) {
 			const doc = state.users.get(id);
 			return doc ? toUser(doc) : null;
+		},
+
+		async getSessionUser(id) {
+			const doc = state.users.get(id);
+			if (!doc) return null;
+			return {
+				user: toUser(doc),
+				interests: [...new Set([...doc.interests, ...(doc.learnedInterests ?? [])])]
+			};
+		},
+
+		async refreshLearnedInterests(userId) {
+			const doc = state.users.get(userId);
+			if (!doc) return;
+			const categories = [...state.activities.values()]
+				.filter((a) => a.memberIds.includes(userId))
+				.map((a) => a.category);
+			doc.learnedInterests = learnedInterests(categories, doc.interests);
 		},
 
 		async getUserEmail(id) {

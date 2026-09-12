@@ -11,6 +11,7 @@
 
 import { MongoClient, type Collection, type Db, type Filter } from 'mongodb';
 import { verifyPassword } from '../auth';
+import { learnedInterests } from '$lib/matching';
 import { seedData } from '../seed';
 import type { Activity, Comment, User, UserDoc } from '$lib/types';
 import {
@@ -152,6 +153,38 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		async getUser(id) {
 			const row = await (await users()).findOne({ _id: id });
 			return row ? toUser(fromRow<UserDoc>(row)) : null;
+		},
+
+		async getSessionUser(id) {
+			const row = await (await users()).findOne({ _id: id });
+			if (!row) return null;
+			const doc = fromRow<UserDoc>(row);
+			return {
+				user: toUser(doc),
+				interests: [...new Set([...doc.interests, ...(doc.learnedInterests ?? [])])]
+			};
+		},
+
+		async refreshLearnedInterests(userId) {
+			const [row, joined] = await Promise.all([
+				(await users()).findOne({ _id: userId }, { projection: { interests: 1 } }),
+				(await activities()).find({ memberIds: userId }, { projection: { category: 1 } }).toArray()
+			]);
+			if (!row) return;
+
+			await (
+				await users()
+			).updateOne(
+				{ _id: userId },
+				{
+					$set: {
+						learnedInterests: learnedInterests(
+							joined.map((a) => a.category),
+							row.interests
+						)
+					}
+				}
+			);
 		},
 
 		async getUserEmail(id) {

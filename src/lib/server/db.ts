@@ -35,6 +35,8 @@ console.log(
 
 export const {
 	getUser,
+	getSessionUser,
+	refreshLearnedInterests,
 	getUserEmail,
 	verifyLogin,
 	createUser,

@@ -6,7 +6,7 @@
 
 import { perPersonCents } from '$lib/format';
 import { campusesWithin, distanceToCampus } from '$lib/geo';
-import { matchPercent, rankByRelevance } from '$lib/matching';
+import { interleaveWildcards, matchPercent, rankByRelevance, seededShuffle } from '$lib/matching';
 import { CATEGORY_INTERESTS } from '$lib/types';
 import type {
 	Activity,
@@ -155,6 +155,7 @@ export function toView(
 		joined: viewerId ? activity.memberIds.includes(viewerId) : false,
 		onWaitlist: viewerId ? (activity.waitlistIds ?? []).includes(viewerId) : false,
 		isHost: viewerId ? activity.hostId === viewerId : false,
+		isWildcard: wildcards.has(activity.id),
 		interests: activity.interests
 	};
 }
@@ -197,7 +198,16 @@ export function campusScope(query: FeedQuery, viewer?: Viewer): string[] | null 
 }
 
 /** The parts of a feed query both backends apply in process: text search + sort. */
+/**
+ * Ids the last searchAndSort() marked as wildcards. Read it straight after the
+ * call — it's the simplest way to get the flag onto the views without threading
+ * a second return value through every backend.
+ */
+export let wildcards = new Set<string>();
+
 export function searchAndSort(rows: Activity[], query: FeedQuery, viewer?: Viewer): Activity[] {
+	wildcards = new Set();
+
 	const needle = query.q?.trim().toLowerCase();
 	if (needle) {
 		rows = rows.filter((a) => `${a.title} ${a.body} ${a.location}`.toLowerCase().includes(needle));
@@ -209,9 +219,21 @@ export function searchAndSort(rows: Activity[], query: FeedQuery, viewer?: Viewe
 		viewer?.location ? distanceToCampus(viewer.location, a.campus) : 0;
 	const sort = query.sort ?? 'foryou';
 
-	// The default feed is ranked against the viewer, not the clock.
+	// Shuffles per viewer per hour: stable while you browse, different later.
+	const seed = `${viewer?.id ?? 'anon'}:${Math.floor(Date.now() / 3_600_000)}`;
+
+	if (sort === 'random') return seededShuffle(rows, seed);
+
+	// The default feed is ranked against the viewer, not the clock — then a
+	// wildcard is slipped in every few rows so it doesn't only ever agree.
 	if (sort === 'foryou') {
-		return rankByRelevance({ interests: viewer?.interests, location: viewer?.location }, rows);
+		const ranked = rankByRelevance(
+			{ interests: viewer?.interests, location: viewer?.location },
+			rows
+		);
+		const { items, wildcardIds } = interleaveWildcards(ranked, seed);
+		wildcards = wildcardIds;
+		return items;
 	}
 
 	return [...rows].sort((a, b) => {

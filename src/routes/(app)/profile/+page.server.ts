@@ -13,7 +13,7 @@ export const load = (async ({ locals }) => {
 	const viewer = {
 		id: locals.user.id,
 		location: locals.location,
-		interests: locals.user.interests
+		interests: locals.interests
 	};
 	const [hosting, joined, leaderboard] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
@@ -21,9 +21,13 @@ export const load = (async ({ locals }) => {
 		grassLeaderboard(1)
 	]);
 
+	// Learned interests are server-side only, so the page has to be told.
+	const learned = locals.interests.filter((i) => !locals.user.interests.includes(i));
+
 	return {
 		hosting,
 		joined,
+		learned,
 		/** Nobody tops an empty board, so a 0-score leader doesn't count. */
 		isTopToucher: leaderboard[0]?.userId === locals.user.id && leaderboard[0].score > 0
 	};

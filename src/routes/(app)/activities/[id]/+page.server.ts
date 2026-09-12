@@ -9,7 +9,8 @@ import {
 	joinWaitlist,
 	leaveActivity,
 	leaveWaitlist,
-	listComments
+	listComments,
+	refreshLearnedInterests
 } from '$lib/server/db';
 import {
 	notifyHostOfWaitlistRequest,
@@ -21,7 +22,7 @@ export const load = (async ({ params, locals }) => {
 	const activity = await getActivity(params.id, {
 		id: locals.user.id,
 		location: locals.location,
-		interests: locals.user.interests
+		interests: locals.interests
 	});
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
@@ -62,7 +63,11 @@ export const actions = {
 		// Tell the host someone joined, and confirm the details to the joiner.
 		// Awaited so it isn't cut off when the serverless function ends; neither
 		// throws, so a mail problem can't fail the join.
-		await sendJoinEmails(result.activity, locals.user, url.origin);
+		await Promise.all([
+			sendJoinEmails(result.activity, locals.user, url.origin),
+			// Joining is the signal; three of a kind and it becomes an interest.
+			refreshLearnedInterests(locals.user.id)
+		]);
 
 		return { message: null };
 	},

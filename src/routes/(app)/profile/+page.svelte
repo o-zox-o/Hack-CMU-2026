@@ -132,6 +132,28 @@
 				<InterestPicker selected={user.interests} />
 			</div>
 
+			{#if data.learned.length > 0}
+				<div>
+					<span class="label">
+						Picked up from what you join
+						<span class="font-semibold text-ink-muted">— only you see these</span>
+					</span>
+					<ul class="flex flex-wrap gap-1.5">
+						{#each data.learned as tag (tag)}
+							<li
+								class="rounded-full border border-dashed border-hedge-strong px-3 py-1 text-fluid-xs font-bold text-ink-soft"
+							>
+								{tag}
+							</li>
+						{/each}
+					</ul>
+					<p class="mt-1.5 text-fluid-xs text-ink-muted">
+						Join three of something and it starts shaping your feed. Tick it above to make it
+						public.
+					</p>
+				</div>
+			{/if}
+
 			<div>
 				<label class="label" for="bio">About you</label>
 				<textarea id="bio" name="bio" class="field min-h-20 resize-y" maxlength="300"

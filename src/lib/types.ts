@@ -245,6 +245,11 @@ export interface User {
 /** Stored shape — the `users` collection. Server-only. */
 export interface UserDoc extends User {
 	email: string;
+	/**
+	 * Picked up from what you actually join, not from the survey. Kept on the
+	 * stored doc only, so it shapes your feed without showing on your profile.
+	 */
+	learnedInterests?: string[];
 	passwordHash: string;
 	/** Set by Auth0 on first login. Absent for password accounts + seed data. */
 	auth0Id?: string;
@@ -318,6 +323,8 @@ export interface ActivityView {
 	/** Has the current viewer asked to join a full activity? */
 	onWaitlist: boolean;
 	isHost: boolean;
+	/** Slipped into the For you feed on purpose, outside your usual taste. */
+	isWildcard?: boolean;
 	interests: string[];
 }
 
@@ -346,6 +353,7 @@ export interface CommentView {
 
 export const SORTS = [
 	{ id: 'foryou', label: 'For you' },
+	{ id: 'random', label: 'Surprise me' },
 	{ id: 'soonest', label: 'Soonest' },
 	{ id: 'nearest', label: 'Nearest' },
 	{ id: 'cheapest', label: 'Cheapest' },

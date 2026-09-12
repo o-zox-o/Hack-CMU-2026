@@ -61,6 +61,14 @@ export type LeaveResult =
  */
 export interface Store {
 	getUser(id: string): Promise<User | null>;
+	/**
+	 * The user plus every interest that should shape their feed — what they
+	 * picked, plus what they've been learned to like. One read, because hooks
+	 * needs both on every request.
+	 */
+	getSessionUser(id: string): Promise<{ user: User; interests: string[] } | null>;
+	/** Recompute learned interests from what this person has joined. */
+	refreshLearnedInterests(userId: string): Promise<void>;
 	/** A user's email address. Server-only — it never appears in a view. */
 	getUserEmail(id: string): Promise<string | null>;
 	verifyLogin(email: string, password: string): Promise<User | null>;
