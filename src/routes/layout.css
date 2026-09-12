@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Tagalong theme — reMarkable paper neutrals + clover green
+   Tagalong theme — cream paper + clover green
    ---------------------------------------------------------------------------
    Two layers:
      1. @theme  -> the raw palette + fluid type scale (static values)
@@ -26,12 +26,12 @@
 	--color-clover-950: #0d240d;
 
 	/* Paper — reMarkable's warm neutrals: off-white page, putty bands. */
-	--color-paper-50: #ffffff;
-	--color-paper-100: #f7f5f0;
-	--color-paper-200: #f3f1ec;
-	--color-paper-300: #e8e4db;
-	--color-paper-400: #d9d4c9;
-	--color-paper-500: #b8b2a5;
+	--color-paper-50: #fffdf7;
+	--color-paper-100: #f9f5ea;
+	--color-paper-200: #f6f2e7;
+	--color-paper-300: #ece5d3;
+	--color-paper-400: #ddd4bd;
+	--color-paper-500: #bdb49b;
 
 	/* Accents. */
 	--color-blush-200: #fbdce4; /* the cat's ears — Free pill */
@@ -71,47 +71,26 @@
 	--shadow-lift: 0 2px 10px rgb(26 26 26 / 0.06);
 }
 
-/* Semantic tokens — light. reMarkable paper: off-white page, putty bands,
-   near-black ink, white cards; clover green as the single accent. */
+/* Semantic tokens. Cream page, off-white cards, warm near-black ink, and
+   clover green as the single accent. Light only — the app looks the same
+   whatever the OS theme is set to. */
 :root {
-	--page: #f3f1ec;
-	--surface: #ffffff;
-	--surface-sunk: #f3f1ec;
-	--surface-hover: #e8e4db;
-	--hedge: #ddd8ce;
-	--hedge-strong: #b8b2a5;
-	--ink: #1a1a1a;
-	--ink-soft: #4a4944;
-	--ink-muted: #7d7b74;
-	--brand: #46a53c; /* buttons, dots — white text */
-	--brand-strong: #35862f; /* hover */
-	--brand-wash: #e0f2da; /* active tab / nav item */
-	--brand-ink: #2b6a27; /* brand as TEXT */
-	--on-brand: #ffffff;
+	--page: #f6f2e7;
+	--surface: #fffdf7;
+	--surface-sunk: #f2ecdd;
+	--surface-hover: #ece5d3;
+	--hedge: #e6dfcc;
+	--hedge-strong: #cfc6ad;
+	--ink: #221f18;
+	--ink-soft: #4e493d;
+	--ink-muted: #857f70;
+	--brand: #46a53c;
+	--brand-strong: #35862f;
+	--brand-wash: #e2f1dc;
+	--brand-ink: #2b6a27;
+	--on-brand: #fffdf7;
 
 	color-scheme: light;
-}
-
-/* Semantic tokens — dark (warm charcoal, same clover accent) */
-@media (prefers-color-scheme: dark) {
-	:root {
-		--page: #161614;
-		--surface: #1f1f1c;
-		--surface-sunk: #191917;
-		--surface-hover: #2a2a26;
-		--hedge: #33332e;
-		--hedge-strong: #4d4c45;
-		--ink: #f3f1ec;
-		--ink-soft: #c9c6bd;
-		--ink-muted: #8f8d85;
-		--brand: #5cb551;
-		--brand-strong: #6fc663;
-		--brand-wash: #22321f;
-		--brand-ink: #8ed483;
-		--on-brand: #0d240d;
-
-		color-scheme: dark;
-	}
 }
 
 /* Expose the semantic tokens as Tailwind utilities. `@theme inline` emits

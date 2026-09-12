@@ -7,6 +7,12 @@
 	const TABS = [
 		{ href: '/', label: 'Feed', icon: 'home', match: (p: string) => p === '/' },
 		{
+			href: '/my-activities',
+			label: 'Mine',
+			icon: 'myActivities',
+			match: (p: string) => p === '/my-activities'
+		},
+		{
 			href: '/activities/new',
 			label: 'Create',
 			icon: 'plus',

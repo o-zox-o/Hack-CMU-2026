@@ -127,6 +127,11 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return row ? toUser(fromRow<UserDoc>(row)) : null;
 		},
 
+		async getUserEmail(id) {
+			const row = await (await users()).findOne({ _id: id }, { projection: { email: 1 } });
+			return row?.email ?? null;
+		},
+
 		async verifyLogin(email, password) {
 			const row = await (await users()).findOne({ email: email.toLowerCase() });
 			if (!row || !verifyPassword(password, row.passwordHash)) return null;

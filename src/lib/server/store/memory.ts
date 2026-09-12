@@ -74,6 +74,10 @@ export function createMemoryStore(): Store {
 			return doc ? toUser(doc) : null;
 		},
 
+		async getUserEmail(id) {
+			return state.users.get(id)?.email ?? null;
+		},
+
 		async verifyLogin(email, password) {
 			const doc = findByEmail(email);
 			if (!doc || !verifyPassword(password, doc.passwordHash)) return null;

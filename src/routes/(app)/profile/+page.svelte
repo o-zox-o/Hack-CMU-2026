@@ -56,6 +56,15 @@
 		</div>
 	</section>
 
+	<a
+		href="/my-activities"
+		class="leaf-card flex items-center gap-3 px-4 py-3 text-fluid-sm font-bold text-ink transition-colors hover:bg-surface-hover"
+	>
+		<Icon name="myActivities" size={18} class="text-brand-ink" />
+		See all my activities in one place
+		<Icon name="arrowUp" size={16} class="ml-auto rotate-90 text-ink-muted" />
+	</a>
+
 	<!-- Hosting -->
 	<section class="flex flex-col gap-3">
 		<h2 class="px-1 text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">

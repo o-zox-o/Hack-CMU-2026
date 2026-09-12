@@ -27,6 +27,7 @@ console.log(
 
 export const {
 	getUser,
+	getUserEmail,
 	verifyLogin,
 	createUser,
 	listActivities,

@@ -27,7 +27,7 @@
 		class="flex w-12 shrink-0 items-start justify-center bg-surface-sunk pt-3 text-xl transition-colors hover:bg-brand-wash sm:w-14 sm:text-2xl"
 		aria-label="All {category.label.toLowerCase()} activities"
 	>
-		<span aria-hidden="true">{category.emoji}</span>
+		<Icon name={category.icon} size={20} />
 	</a>
 
 	<div class="min-w-0 flex-1 px-3 py-2.5 sm:px-4">

@@ -1,6 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { addComment, getActivity, joinActivity, leaveActivity, listComments } from '$lib/server/db';
+import { notifyHostOfJoin } from '$lib/server/email';
 
 export const load = (async ({ params, locals }) => {
 	const activity = await getActivity(params.id, { id: locals.user.id, location: locals.location });
@@ -22,9 +23,14 @@ const LEAVE_MESSAGES = {
 } as const;
 
 export const actions = {
-	join: async ({ params, locals }) => {
+	join: async ({ params, locals, url }) => {
 		const result = await joinActivity(params.id, locals.user.id);
 		if (!result.ok) return fail(409, { message: JOIN_MESSAGES[result.reason] });
+
+		// Let the host know. Awaited so it isn't cut off when the serverless
+		// function ends; it never throws, so a mail problem can't fail the join.
+		await notifyHostOfJoin(result.activity, locals.user, url.origin);
+
 		return { message: null };
 	},
 

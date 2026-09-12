@@ -35,6 +35,8 @@ export type LeaveResult =
  */
 export interface Store {
 	getUser(id: string): Promise<User | null>;
+	/** A user's email address. Server-only — it never appears in a view. */
+	getUserEmail(id: string): Promise<string | null>;
 	verifyLogin(email: string, password: string): Promise<User | null>;
 	createUser(input: SignupInput): Promise<SignupResult>;
 

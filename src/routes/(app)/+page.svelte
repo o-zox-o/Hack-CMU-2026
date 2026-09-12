@@ -3,7 +3,8 @@
 	import ActivityCard from '$lib/components/ActivityCard.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { radiusMiles } from '$lib/geo';
-	import { campusMeta, categoryMeta, RADII, SORTS } from '$lib/types';
+	import RadiusPicker from '$lib/components/RadiusPicker.svelte';
+	import { campusMeta, categoryMeta, DEFAULT_RADIUS, SORTS } from '$lib/types';
 
 	let { data } = $props();
 
@@ -17,7 +18,7 @@
 	/* Where we're looking: one campus, a radius around you, or everywhere. */
 	let scope = $derived.by(() => {
 		if (data.query.campus) return `${campusMeta(data.query.campus).city} · one campus`;
-		const limit = radiusMiles(data.query.within ?? '10');
+		const limit = radiusMiles(data.query.within ?? DEFAULT_RADIUS);
 		if (limit === null) return 'every campus';
 		const count = data.campuses.filter((c) => c.miles <= limit).length;
 		const anchor = data.locationSource === 'gps' ? 'you' : data.campuses[0].short;
@@ -85,20 +86,11 @@
 		</div>
 
 		<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-hedge pt-3">
-			<!-- Radius. Picking one also un-pins any single campus. -->
-			<nav aria-label="Distance" class="flex items-center gap-1">
-				<Icon name="pin" size={14} class="mr-0.5 text-ink-muted" />
-				{#each RADII as radius (radius.id)}
-					{@const isActive = !data.query.campus && (data.query.within ?? '10') === radius.id}
-					<a
-						href={withParams({ within: radius.id === '10' ? null : radius.id, campus: null })}
-						class="{tab} {isActive ? tabOn : tabOff}"
-						aria-current={isActive ? 'page' : undefined}
-					>
-						{radius.label}
-					</a>
-				{/each}
-			</nav>
+			<RadiusPicker
+				within={data.query.within ?? DEFAULT_RADIUS}
+				pinned={Boolean(data.query.campus)}
+				{withParams}
+			/>
 
 			<!-- All / Free -->
 			<nav aria-label="Price" class="flex gap-1 sm:ml-auto">
@@ -111,10 +103,10 @@
 				</a>
 				<a
 					href={withParams({ free: '1' })}
-					class="{tab} {data.query.free ? tabOn : tabOff}"
+					class="{tab} inline-flex items-center gap-1 {data.query.free ? tabOn : tabOff}"
 					aria-current={data.query.free ? 'page' : undefined}
 				>
-					🎁 Free
+					<Icon name="gift" size={13} /> Free
 				</a>
 			</nav>
 		</div>
@@ -122,7 +114,7 @@
 
 	{#if data.activities.length === 0}
 		<div class="leaf-card flex flex-col items-center gap-3 px-6 py-12 text-center">
-			<span class="text-4xl" aria-hidden="true">🌱</span>
+			<Icon name="sprout" size={36} class="text-brand-ink" />
 			<h2 class="text-fluid-lg font-extrabold text-ink">Nothing here yet</h2>
 			<p class="max-w-sm text-fluid-sm text-ink-soft">
 				{#if !data.query.campus && data.query.within !== 'all'}
