@@ -10,6 +10,7 @@ import { SEED_VERSION, seedData } from '../seed';
 import type { Activity, Comment, User, UserDoc } from '$lib/types';
 import {
 	campusScope,
+	canSeeComment,
 	handleBase,
 	newActivityDoc,
 	newCommentDoc,
@@ -100,6 +101,7 @@ export function createMemoryStore(): Store {
 			const doc = state.users.get(userId);
 			if (!doc) return null;
 			if (patch.bio !== undefined) doc.bio = patch.bio;
+			if (patch.isPrivate !== undefined) doc.isPrivate = patch.isPrivate;
 			if (patch.interests !== undefined) doc.interests = patch.interests;
 			return toUser(doc);
 		},
@@ -118,12 +120,20 @@ export function createMemoryStore(): Store {
 			return a ? view(a, viewer) : null;
 		},
 
-		async listComments(activityId) {
+		async listComments(activityId, viewerId) {
 			const rows = state.comments
 				.filter((c) => c.activityId === activityId)
 				.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 			const users = usersFor(rows.map((c) => c.authorId));
-			return rows.map((c) => toCommentView(c, users));
+
+			const activity = state.activities.get(activityId);
+			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
+
+			const allowed = rows.filter((c) => canSeeComment(users.get(c.authorId), viewerId, isMember));
+			return {
+				visible: allowed.map((c) => toCommentView(c, users)),
+				hidden: rows.length - allowed.length
+			};
 		},
 
 		async activitiesHostedBy(userId, viewer) {

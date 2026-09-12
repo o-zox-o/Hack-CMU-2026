@@ -23,6 +23,12 @@ export interface Viewer {
 export interface ProfilePatch {
 	bio?: string;
 	interests?: string[];
+	isPrivate?: boolean;
+}
+
+export interface CommentThread {
+	visible: CommentView[];
+	hidden: number;
 }
 
 export type SignupResult = { ok: true; user: User } | { ok: false; reason: 'email-taken' };
@@ -63,7 +69,12 @@ export interface Store {
 
 	listActivities(query?: FeedQuery, viewer?: Viewer): Promise<ActivityView[]>;
 	getActivity(id: string, viewer?: Viewer): Promise<ActivityView | null>;
-	listComments(activityId: string): Promise<CommentView[]>;
+	/**
+	 * Comments on an activity, with private authors' comments withheld from
+	 * anyone who hasn't joined it. `hidden` is how many were withheld, so the
+	 * page can say so without revealing who wrote them.
+	 */
+	listComments(activityId: string, viewerId?: string): Promise<CommentThread>;
 	activitiesHostedBy(userId: string, viewer?: Viewer): Promise<ActivityView[]>;
 	activitiesJoinedBy(userId: string, viewer?: Viewer): Promise<ActivityView[]>;
 	/** Activity counts per user, highest first — drives the "Top grass toucher" badge. */

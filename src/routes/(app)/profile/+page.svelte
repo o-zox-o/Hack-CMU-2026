@@ -139,6 +139,27 @@
 				>
 			</div>
 
+			<div>
+				<span class="label">Privacy</span>
+				<label
+					class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-hedge bg-surface-sunk p-3"
+				>
+					<input
+						type="checkbox"
+						name="isPrivate"
+						checked={user.isPrivate ?? false}
+						class="mt-0.5 h-4 w-4 shrink-0 accent-[var(--brand)]"
+					/>
+					<span>
+						<span class="block text-fluid-sm font-bold text-ink">Private profile</span>
+						<span class="block text-fluid-xs text-ink-muted">
+							Your comments are only shown to people who joined that activity. Everyone else sees
+							that a comment is there, not who wrote it or what it says.
+						</span>
+					</span>
+				</label>
+			</div>
+
 			<div class="flex items-center gap-3">
 				<button type="submit" class="btn btn-primary">Save profile</button>
 				{#if form?.saved}

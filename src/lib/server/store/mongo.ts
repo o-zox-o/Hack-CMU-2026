@@ -15,6 +15,7 @@ import { seedData } from '../seed';
 import type { Activity, Comment, User, UserDoc } from '$lib/types';
 import {
 	campusScope,
+	canSeeComment,
 	handleBase,
 	newActivityDoc,
 	newCommentDoc,
@@ -218,11 +219,23 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return row ? view(row, viewer) : null;
 		},
 
-		async listComments(activityId) {
-			const rows = await (await comments()).find({ activityId }).sort({ createdAt: 1 }).toArray();
+		async listComments(activityId, viewerId) {
+			const [rows, activity] = await Promise.all([
+				(await comments()).find({ activityId }).sort({ createdAt: 1 }).toArray(),
+				(await activities()).findOne({ _id: activityId }, { projection: { memberIds: 1 } })
+			]);
+
 			const docs = rows.map((r) => fromRow<Comment>(r));
 			const userMap = await usersFor([...new Set(docs.map((c) => c.authorId))]);
-			return docs.map((c) => toCommentView(c, userMap));
+			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
+
+			const allowed = docs.filter((c) =>
+				canSeeComment(userMap.get(c.authorId), viewerId, isMember)
+			);
+			return {
+				visible: allowed.map((c) => toCommentView(c, userMap)),
+				hidden: docs.length - allowed.length
+			};
 		},
 
 		async activitiesHostedBy(userId, viewer) {

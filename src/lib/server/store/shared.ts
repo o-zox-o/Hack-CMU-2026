@@ -65,6 +65,7 @@ export function newUserDoc(input: SignupInput, handle: string, avatarSeed: numbe
 		passwordHash: hashPassword(input.password),
 		campus: input.campus,
 		interests: input.interests,
+		isPrivate: false,
 		bio: '',
 		avatarSeed,
 		joinedAt: new Date().toISOString()
@@ -156,6 +157,20 @@ export function toView(
 		isHost: viewerId ? activity.hostId === viewerId : false,
 		interests: activity.interests
 	};
+}
+
+/**
+ * Can `viewer` read this comment? A private author's comments are for the
+ * people in the activity — plus the author, who can always see their own.
+ */
+export function canSeeComment(
+	author: User | undefined,
+	viewerId: string | undefined,
+	viewerIsMember: boolean
+): boolean {
+	if (!author?.isPrivate) return true;
+	if (viewerId && author.id === viewerId) return true;
+	return viewerIsMember;
 }
 
 export function toCommentView(comment: Comment, users: Map<string, User>): CommentView {

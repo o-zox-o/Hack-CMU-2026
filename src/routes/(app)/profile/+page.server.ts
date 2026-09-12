@@ -36,7 +36,8 @@ export const actions = {
 			bio: String(form.get('bio') ?? '')
 				.trim()
 				.slice(0, 300),
-			interests: [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12)
+			interests: [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12),
+			isPrivate: form.get('isPrivate') === 'on'
 		});
 		return { saved: true };
 	},

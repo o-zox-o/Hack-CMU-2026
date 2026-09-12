@@ -25,7 +25,7 @@ export const load = (async ({ params, locals }) => {
 	});
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
-	return { activity, comments: await listComments(params.id) };
+	return { activity, comments: await listComments(params.id, locals.user.id) };
 }) satisfies PageServerLoad;
 
 const JOIN_MESSAGES = {

@@ -229,6 +229,11 @@ export interface User {
 	handle: string;
 	campus: CampusId;
 	bio: string;
+	/**
+	 * Private profiles keep their comments to the people in the activity.
+	 * Optional so accounts created before this still parse as public.
+	 */
+	isPrivate?: boolean;
 	avatarSeed: number;
 	joinedAt: string;
 
