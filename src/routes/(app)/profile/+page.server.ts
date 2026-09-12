@@ -1,7 +1,12 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { clearSessionCookie } from '$lib/server/auth';
-import { activitiesHostedBy, activitiesJoinedBy, updateProfile } from '$lib/server/db';
+import {
+	activitiesHostedBy,
+	activitiesJoinedBy,
+	grassLeaderboard,
+	updateProfile
+} from '$lib/server/db';
 import { isInterest } from '$lib/types';
 
 export const load = (async ({ locals }) => {
@@ -10,11 +15,18 @@ export const load = (async ({ locals }) => {
 		location: locals.location,
 		interests: locals.user.interests
 	};
-	const [hosting, joined] = await Promise.all([
+	const [hosting, joined, leaderboard] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
-		activitiesJoinedBy(locals.user.id, viewer)
+		activitiesJoinedBy(locals.user.id, viewer),
+		grassLeaderboard(1)
 	]);
-	return { hosting, joined };
+
+	return {
+		hosting,
+		joined,
+		/** Nobody tops an empty board, so a 0-score leader doesn't count. */
+		isTopToucher: leaderboard[0]?.userId === locals.user.id && leaderboard[0].score > 0
+	};
 }) satisfies PageServerLoad;
 
 export const actions = {

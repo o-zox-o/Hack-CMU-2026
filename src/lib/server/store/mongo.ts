@@ -245,6 +245,18 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return views(rows, viewer);
 		},
 
+		async grassLeaderboard(limit = 10) {
+			return (await activities())
+				.aggregate<{ userId: string; score: number }>([
+					{ $unwind: '$memberIds' },
+					{ $group: { _id: '$memberIds', score: { $sum: 1 } } },
+					{ $sort: { score: -1, _id: 1 } },
+					{ $limit: limit },
+					{ $project: { _id: 0, userId: '$_id', score: 1 } }
+				])
+				.toArray();
+		},
+
 		async createActivity(input, hostId) {
 			const doc = newActivityDoc(input, hostId);
 			await (await activities()).insertOne(toRow(doc));

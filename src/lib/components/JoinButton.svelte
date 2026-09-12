@@ -2,6 +2,7 @@
 	import { applyAction, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { celebration } from '$lib/celebrate.svelte';
 	import type { ActivityView } from '$lib/types';
 	import Icon from './Icon.svelte';
 
@@ -18,14 +19,25 @@
 	/* The join/leave actions live on the detail route. Posting to them from the
 	   feed works without JS (it just lands you on the detail page), and with JS
 	   we refresh the current page's data instead of navigating. */
-	const refresh: SubmitFunction = () => {
-		busy = true;
-		return async ({ result }) => {
-			busy = false;
-			if (result.type === 'success' || result.type === 'redirect') await invalidateAll();
-			else await applyAction(result);
+	function submit(onSuccess?: () => void): SubmitFunction {
+		return () => {
+			busy = true;
+			return async ({ result }) => {
+				busy = false;
+				if (result.type === 'success' || result.type === 'redirect') {
+					onSuccess?.();
+					await invalidateAll();
+				} else {
+					await applyAction(result);
+				}
+			};
 		};
-	};
+	}
+
+	const refresh = submit();
+	const joinAndCelebrate = submit(() =>
+		celebration.start("Congrats — you touched grass! That's one more blade.")
+	);
 
 	let width = $derived(block ? 'w-full' : '');
 </script>
@@ -50,17 +62,17 @@
 			disabled={busy}
 			title="Withdraw your request"
 		>
-			<Icon name="clock" size={14} /> Waiting for host
+			<Icon name="clock" size={14} /> Waitlisted
 		</button>
 	</form>
 {:else if activity.isFull}
 	<form method="POST" action="/activities/{activity.id}?/requestSpot" use:enhance={refresh}>
 		<button type="submit" class="btn btn-ghost {width}" disabled={busy}>
-			<Icon name="clock" size={14} /> Ask to join
+			<Icon name="clock" size={14} /> Add to waitlist
 		</button>
 	</form>
 {:else}
-	<form method="POST" action="/activities/{activity.id}?/join" use:enhance={refresh}>
+	<form method="POST" action="/activities/{activity.id}?/join" use:enhance={joinAndCelebrate}>
 		<button type="submit" class="btn btn-primary {width}" disabled={busy}>
 			<Icon name="plus" size={14} strokeWidth={3} /> Join
 		</button>

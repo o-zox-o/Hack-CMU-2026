@@ -66,6 +66,8 @@ export interface Store {
 	listComments(activityId: string): Promise<CommentView[]>;
 	activitiesHostedBy(userId: string, viewer?: Viewer): Promise<ActivityView[]>;
 	activitiesJoinedBy(userId: string, viewer?: Viewer): Promise<ActivityView[]>;
+	/** Activity counts per user, highest first — drives the "Top grass toucher" badge. */
+	grassLeaderboard(limit?: number): Promise<{ userId: string; score: number }[]>;
 
 	createActivity(input: NewActivityInput, hostId: string): Promise<ActivityView>;
 	joinActivity(id: string, userId: string): Promise<JoinResult>;

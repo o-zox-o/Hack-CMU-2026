@@ -44,6 +44,7 @@ export const {
 	listComments,
 	activitiesHostedBy,
 	activitiesJoinedBy,
+	grassLeaderboard,
 	createActivity,
 	joinActivity,
 	leaveActivity,

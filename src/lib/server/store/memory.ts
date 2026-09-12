@@ -138,6 +138,17 @@ export function createMemoryStore(): Store {
 			return views(rows, viewer);
 		},
 
+		async grassLeaderboard(limit = 10) {
+			const counts = new Map<string, number>();
+			for (const a of state.activities.values()) {
+				for (const m of a.memberIds) counts.set(m, (counts.get(m) ?? 0) + 1);
+			}
+			return [...counts.entries()]
+				.map(([userId, score]) => ({ userId, score }))
+				.sort((a, b) => b.score - a.score || a.userId.localeCompare(b.userId))
+				.slice(0, limit);
+		},
+
 		async createActivity(input, hostId) {
 			const a = newActivityDoc(input, hostId);
 			state.activities.set(a.id, a);
