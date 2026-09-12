@@ -28,10 +28,10 @@ Or create a new account from Sign up (`.edu` emails). New accounts get a short i
 
 ### What to click through
 
-1. **For you (`/`)** — a mixed feed of hangouts and practical plans, ranked for this user based on interests. Look for **% match** on cards. Filter by category. Set a mile radius for how far away you're willing to go.
-2. **Open a hangout** — See who’s already going, comments, and join the group. Joining an activity celebrates that (**you touched grass**) and rains confetti grass.
-3. **Profile** — **Grass touched** score, a growing garden (bare patch to a meadow), and badges.
-4. **Post** — host a hangout or a split-the-cost run.
+1. **For you (`/`)** - a mixed feed of hangouts and practical plans, ranked for this user based on interests. Look for **% match** on cards. Filter by category. Set a mile radius for how far away you're willing to go.
+2. **Open a hangout** - See who’s already going, comments, and join the group. Joining an activity celebrates that (**you touched grass**) and rains confetti grass.
+3. **Profile** - **Grass touched** score, a growing garden (bare patch to a meadow), and badges.
+4. **Post** - host a hangout or a split-the-cost run.
 5. Allow location if asked, otherwise it uses your campus.
 
 ---
