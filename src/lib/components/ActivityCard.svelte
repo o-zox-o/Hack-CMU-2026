@@ -29,13 +29,21 @@
 	>
 		<Icon name={category.icon} size={20} />
 		{#if activity.matchPercent !== null}
+			<!-- Stacked, because the gutter is only ~48px wide. -->
 			<span
-				class="text-fluid-xs font-extrabold tabular-nums {activity.matchPercent >= 50
-					? 'text-brand-ink'
-					: 'text-ink-muted'}"
+				class="flex flex-col items-center leading-none"
 				title="{activity.matchPercent}% match with your interests"
 			>
-				{activity.matchPercent}%
+				<span
+					class="text-fluid-xs font-extrabold tabular-nums {activity.matchPercent >= 50
+						? 'text-brand-ink'
+						: 'text-ink-muted'}"
+				>
+					{activity.matchPercent}%
+				</span>
+				<span class="mt-0.5 text-[0.58rem] font-bold tracking-wide text-ink-muted uppercase">
+					match
+				</span>
 			</span>
 		{/if}
 	</a>
