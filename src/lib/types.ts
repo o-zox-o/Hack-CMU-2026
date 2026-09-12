@@ -228,7 +228,6 @@ export interface User {
 	name: string;
 	handle: string;
 	campus: CampusId;
-	location: string;
 	bio: string;
 	avatarSeed: number;
 	joinedAt: string;

@@ -22,8 +22,6 @@ export interface Viewer {
 /** The parts of a profile someone can edit. Any field left out is untouched. */
 export interface ProfilePatch {
 	bio?: string;
-	/** Free-text city, shown on the profile. */
-	location?: string;
 	interests?: string[];
 }
 

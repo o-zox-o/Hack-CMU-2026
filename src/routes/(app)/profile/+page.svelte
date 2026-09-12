@@ -70,20 +70,11 @@
 				<InterestPicker selected={user.interests} />
 			</div>
 
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div>
-					<label class="label" for="bio">About you</label>
-					<textarea id="bio" name="bio" class="field min-h-20 resize-y" maxlength="300"
-						>{user.bio}</textarea
-					>
-				</div>
-				<div>
-					<label class="label" for="location">Where you're based</label>
-					<input id="location" name="location" class="field" maxlength="80" value={user.location} />
-					<p class="mt-1 text-fluid-xs text-ink-muted">
-						Shown on your profile. Distances come from your campus.
-					</p>
-				</div>
+			<div>
+				<label class="label" for="bio">About you</label>
+				<textarea id="bio" name="bio" class="field min-h-20 resize-y" maxlength="300"
+					>{user.bio}</textarea
+				>
 			</div>
 
 			<div class="flex items-center gap-3">

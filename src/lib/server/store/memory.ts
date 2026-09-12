@@ -100,7 +100,6 @@ export function createMemoryStore(): Store {
 			const doc = state.users.get(userId);
 			if (!doc) return null;
 			if (patch.bio !== undefined) doc.bio = patch.bio;
-			if (patch.location !== undefined) doc.location = patch.location;
 			if (patch.interests !== undefined) doc.interests = patch.interests;
 			return toUser(doc);
 		},
