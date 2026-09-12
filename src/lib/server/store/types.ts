@@ -22,8 +22,6 @@ export interface Viewer {
 /** The parts of a profile someone can edit. Any field left out is untouched. */
 export interface ProfilePatch {
 	bio?: string;
-	/** Free-text city, shown on the profile. */
-	location?: string;
 	interests?: string[];
 }
 
@@ -32,6 +30,18 @@ export type SignupResult = { ok: true; user: User } | { ok: false; reason: 'emai
 export type JoinResult =
 	| { ok: true; activity: ActivityView }
 	| { ok: false; reason: 'not-found' | 'full' | 'already-joined' };
+
+export type WaitlistResult =
+	| { ok: true; activity: ActivityView }
+	| {
+			ok: false;
+			reason: 'not-found' | 'not-full' | 'already-joined' | 'already-waiting' | 'not-waiting';
+	  };
+
+/** Approving is the host's call, so it can also fail on permission. */
+export type ApprovalResult =
+	| { ok: true; activity: ActivityView; addedSpot: boolean }
+	| { ok: false; reason: 'not-found' | 'not-host' | 'not-waiting' };
 
 export type LeaveResult =
 	| { ok: true; activity: ActivityView }
@@ -60,5 +70,13 @@ export interface Store {
 	createActivity(input: NewActivityInput, hostId: string): Promise<ActivityView>;
 	joinActivity(id: string, userId: string): Promise<JoinResult>;
 	leaveActivity(id: string, userId: string): Promise<LeaveResult>;
+	/** Ask to join something that's already full. */
+	joinWaitlist(id: string, userId: string): Promise<WaitlistResult>;
+	/** Withdraw that request. */
+	leaveWaitlist(id: string, userId: string): Promise<WaitlistResult>;
+	/** Host lets someone in. Takes a free spot, or adds one if there are none. */
+	approveWaitlist(id: string, hostId: string, userId: string): Promise<ApprovalResult>;
+	/** Host turns a request down. */
+	declineWaitlist(id: string, hostId: string, userId: string): Promise<ApprovalResult>;
 	addComment(activityId: string, authorId: string, body: string): Promise<CommentView | null>;
 }

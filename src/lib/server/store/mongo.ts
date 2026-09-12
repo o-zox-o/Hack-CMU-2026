@@ -290,6 +290,93 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return { ok: false, reason: 'not-a-member' };
 		},
 
+		/** Only joins the queue when it really is full — checked in the filter. */
+		async joinWaitlist(id, userId) {
+			const col = await activities();
+			const updated = await col.findOneAndUpdate(
+				{
+					_id: id,
+					memberIds: { $ne: userId },
+					waitlistIds: { $ne: userId },
+					$expr: { $gte: [{ $size: '$memberIds' }, '$spots'] }
+				},
+				{ $push: { waitlistIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (updated) return { ok: true, activity: await view(updated, { id: userId }) };
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			if ((current.waitlistIds ?? []).includes(userId))
+				return { ok: false, reason: 'already-waiting' };
+			return { ok: false, reason: 'not-full' };
+		},
+
+		async leaveWaitlist(id, userId) {
+			const col = await activities();
+			const updated = await col.findOneAndUpdate(
+				{ _id: id, waitlistIds: userId },
+				{ $pull: { waitlistIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (updated) return { ok: true, activity: await view(updated, { id: userId }) };
+			return {
+				ok: false,
+				reason: (await col.countDocuments({ _id: id })) ? 'not-waiting' : 'not-found'
+			};
+		},
+
+		/**
+		 * Move someone from the queue into the activity. Two atomic attempts:
+		 * take a free spot, or — if there are none — add one, which is the host
+		 * deciding to make room.
+		 */
+		async approveWaitlist(id, hostId, userId) {
+			const col = await activities();
+			const base = { _id: id, hostId, waitlistIds: userId };
+
+			const intoFreeSpot = await col.findOneAndUpdate(
+				{ ...base, $expr: { $lt: [{ $size: '$memberIds' }, '$spots'] } },
+				{ $pull: { waitlistIds: userId }, $push: { memberIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (intoFreeSpot) {
+				return { ok: true, activity: await view(intoFreeSpot, { id: hostId }), addedSpot: false };
+			}
+
+			const withNewSpot = await col.findOneAndUpdate(
+				base,
+				{ $pull: { waitlistIds: userId }, $push: { memberIds: userId }, $inc: { spots: 1 } },
+				{ returnDocument: 'after' }
+			);
+			if (withNewSpot) {
+				return { ok: true, activity: await view(withNewSpot, { id: hostId }), addedSpot: true };
+			}
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'not-waiting' };
+		},
+
+		async declineWaitlist(id, hostId, userId) {
+			const col = await activities();
+			const updated = await col.findOneAndUpdate(
+				{ _id: id, hostId, waitlistIds: userId },
+				{ $pull: { waitlistIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (updated) {
+				return { ok: true, activity: await view(updated, { id: hostId }), addedSpot: false };
+			}
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'not-waiting' };
+		},
+
 		async addComment(activityId, authorId, body) {
 			const exists = await (await activities()).countDocuments({ _id: activityId }, { limit: 1 });
 			if (!exists) return null;

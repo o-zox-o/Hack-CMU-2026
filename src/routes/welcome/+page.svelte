@@ -6,7 +6,6 @@
 	let { data } = $props();
 
 	let bio = $state('');
-	let city = $state('');
 	let saving = $state(false);
 
 	let action = $derived(data.next === '/' ? '' : `?next=${encodeURIComponent(data.next)}`);
@@ -61,23 +60,6 @@
 				bind:value={bio}
 				maxlength="300"
 				placeholder="Junior in ECE. Perpetually organizing the Costco run."></textarea>
-		</div>
-
-		<div>
-			<label class="label" for="location">
-				Where you're based <span class="font-semibold text-ink-muted">(optional)</span>
-			</label>
-			<input
-				id="location"
-				name="location"
-				class="field"
-				bind:value={city}
-				maxlength="80"
-				placeholder={data.suggestedCity}
-			/>
-			<p class="mt-1 text-fluid-xs text-ink-muted">
-				Shown on your profile. Distances come from your campus, not this.
-			</p>
 		</div>
 
 		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">

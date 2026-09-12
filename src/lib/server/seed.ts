@@ -39,7 +39,6 @@ export function seedData(): SeedData {
 			avatarSeed: 0,
 			email: 'mei@andrew.cmu.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['groceries', 'cooking', 'bulk buys', 'driving'],
 			joinedAt: hoursAgo(24 * 240)
 		},
@@ -52,7 +51,6 @@ export function seedData(): SeedData {
 			avatarSeed: 1,
 			email: 'satsuki@andrew.cmu.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['music', 'design', 'coffee', 'farmers markets'],
 			joinedAt: hoursAgo(24 * 190)
 		},
@@ -65,7 +63,6 @@ export function seedData(): SeedData {
 			avatarSeed: 2,
 			email: 'kanta@pitt.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['driving', 'travel', 'early mornings', 'pre-med'],
 			joinedAt: hoursAgo(24 * 150)
 		},
@@ -78,7 +75,6 @@ export function seedData(): SeedData {
 			avatarSeed: 3,
 			email: 'nori@andrew.cmu.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['groceries', 'budgeting', 'cooking', 'textbooks'],
 			joinedAt: hoursAgo(24 * 95)
 		},
@@ -91,7 +87,6 @@ export function seedData(): SeedData {
 			avatarSeed: 4,
 			email: 'pria@chatham.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['carpools', 'sustainability', 'errands', 'hiking'],
 			joinedAt: hoursAgo(24 * 70)
 		},
@@ -104,7 +99,6 @@ export function seedData(): SeedData {
 			avatarSeed: 5,
 			email: 'dev@duq.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['subscriptions', 'food delivery', 'board games'],
 			joinedAt: hoursAgo(24 * 40)
 		},
@@ -117,7 +111,6 @@ export function seedData(): SeedData {
 			avatarSeed: 6,
 			email: 'lin@pitt.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['furniture', 'ikea', 'diy', 'farmers markets'],
 			joinedAt: hoursAgo(24 * 30)
 		},
@@ -130,7 +123,6 @@ export function seedData(): SeedData {
 			avatarSeed: 7,
 			email: 'theo@andrew.cmu.edu',
 			passwordHash: demoHash,
-			location: 'Pittsburgh, PA',
 			interests: ['food', 'theatre', 'airport runs', 'late nights'],
 			joinedAt: hoursAgo(24 * 12)
 		},
@@ -143,7 +135,6 @@ export function seedData(): SeedData {
 			avatarSeed: 0,
 			email: 'ava@psu.edu',
 			passwordHash: demoHash,
-			location: 'State College, PA',
 			interests: ['road trips', 'driving', 'music'],
 			joinedAt: hoursAgo(24 * 20)
 		},
@@ -156,7 +147,6 @@ export function seedData(): SeedData {
 			avatarSeed: 5,
 			email: 'marcus@mix.wvu.edu',
 			passwordHash: demoHash,
-			location: 'Morgantown, WV',
 			interests: ['groceries', 'bulk buys', 'trucks'],
 			joinedAt: hoursAgo(24 * 9)
 		}

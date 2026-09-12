@@ -100,7 +100,6 @@ export function createMemoryStore(): Store {
 			const doc = state.users.get(userId);
 			if (!doc) return null;
 			if (patch.bio !== undefined) doc.bio = patch.bio;
-			if (patch.location !== undefined) doc.location = patch.location;
 			if (patch.interests !== undefined) doc.interests = patch.interests;
 			return toUser(doc);
 		},
@@ -161,6 +160,49 @@ export function createMemoryStore(): Store {
 			if (!a.memberIds.includes(userId)) return { ok: false, reason: 'not-a-member' };
 			a.memberIds = a.memberIds.filter((m) => m !== userId);
 			return { ok: true, activity: view(a, { id: userId }) };
+		},
+
+		async joinWaitlist(id, userId) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			if (a.memberIds.length < a.spots) return { ok: false, reason: 'not-full' };
+			a.waitlistIds ??= [];
+			if (a.waitlistIds.includes(userId)) return { ok: false, reason: 'already-waiting' };
+			a.waitlistIds.push(userId);
+			return { ok: true, activity: view(a, { id: userId }) };
+		},
+
+		async leaveWaitlist(id, userId) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (!(a.waitlistIds ?? []).includes(userId)) return { ok: false, reason: 'not-waiting' };
+			a.waitlistIds = (a.waitlistIds ?? []).filter((w) => w !== userId);
+			return { ok: true, activity: view(a, { id: userId }) };
+		},
+
+		async approveWaitlist(id, hostId, userId) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			if (!(a.waitlistIds ?? []).includes(userId)) return { ok: false, reason: 'not-waiting' };
+
+			// Take a free spot if there is one; otherwise the host is making room.
+			const addedSpot = a.memberIds.length >= a.spots;
+			if (addedSpot) a.spots += 1;
+
+			a.waitlistIds = (a.waitlistIds ?? []).filter((w) => w !== userId);
+			a.memberIds.push(userId);
+			return { ok: true, activity: view(a, { id: hostId }), addedSpot };
+		},
+
+		async declineWaitlist(id, hostId, userId) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			if (!(a.waitlistIds ?? []).includes(userId)) return { ok: false, reason: 'not-waiting' };
+			a.waitlistIds = (a.waitlistIds ?? []).filter((w) => w !== userId);
+			return { ok: true, activity: view(a, { id: hostId }), addedSpot: false };
 		},
 
 		async addComment(activityId, authorId, body) {

@@ -24,9 +24,6 @@ export const actions = {
 			bio: String(form.get('bio') ?? '')
 				.trim()
 				.slice(0, 300),
-			location: String(form.get('location') ?? '')
-				.trim()
-				.slice(0, 80),
 			interests: [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12)
 		});
 		return { saved: true };

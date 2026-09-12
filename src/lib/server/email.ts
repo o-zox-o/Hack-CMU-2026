@@ -11,7 +11,7 @@
 
 import { env } from '$env/dynamic/private';
 import { formatCents, formatPrice, formatWhen, perPersonCents } from '$lib/format';
-import { getUserEmail } from './db';
+import { getUser, getUserEmail } from './db';
 import type { ActivityView, User } from '$lib/types';
 
 const ENDPOINT = 'https://api.resend.com/emails';
@@ -188,4 +188,85 @@ export async function sendJoinEmails(
 		notifyHostOfJoin(activity, joiner, origin),
 		confirmJoin(activity, joiner, origin)
 	]);
+}
+
+/** Someone asked to join a full activity — the host decides. */
+export async function notifyHostOfWaitlistRequest(
+	activity: ActivityView,
+	requester: User,
+	origin: string
+): Promise<MailResult> {
+	if (activity.host.id === requester.id) return { ok: false, reason: 'not-configured' };
+
+	const to = await getUserEmail(activity.host.id);
+	if (!to) return { ok: false, reason: 'not-configured' };
+
+	const link = `${origin}/activities/${activity.id}`;
+	const waiting = activity.waitlist.length;
+	const rows: [string, string][] = [
+		['Activity', activity.title],
+		['When', formatWhen(activity.startsAt)],
+		['Currently', `${activity.spotsTaken} of ${activity.spots} — full`],
+		['Waiting', `${waiting} ${waiting === 1 ? 'person' : 'people'}`]
+	];
+
+	const text = [
+		`${requester.name} (@${requester.handle}) asked to join "${activity.title}", which is full.`,
+		'',
+		...rows.map(([k, v]) => `${k}: ${v}`),
+		'',
+		'Approve them from the activity page — it takes a free spot if one opened up, or adds one.',
+		'',
+		link
+	].join('\n');
+
+	const html = shell(
+		`${escape(requester.name)} wants to join`,
+		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5"><strong>${escape(requester.name)}</strong> (@${escape(requester.handle)}) asked to join <strong>${escape(activity.title)}</strong>, which is full.</p>` +
+			detailTable(rows) +
+			`<p style="margin:16px 0 0;font-size:13px;color:#857f70">Approving takes a free spot if one opened up, or adds one.</p>` +
+			button(link, 'Review the request')
+	);
+
+	return send({ to, subject: `${requester.name} wants to join "${activity.title}"`, html, text });
+}
+
+/** The host said yes — tell the person they're in. */
+export async function notifyWaitlistApproved(
+	activity: ActivityView,
+	userId: string,
+	origin: string
+): Promise<MailResult> {
+	const [to, user] = await Promise.all([getUserEmail(userId), getUser(userId)]);
+	if (!to || !user) return { ok: false, reason: 'not-configured' };
+
+	const link = `${origin}/activities/${activity.id}`;
+	const yourShare =
+		activity.costCents === 0
+			? 'Free'
+			: formatCents(perPersonCents(activity.costCents, activity.costBasis, activity.spotsTaken));
+
+	const rows: [string, string][] = [
+		['When', formatWhen(activity.startsAt)],
+		['Where', activity.location],
+		['Your share', yourShare],
+		['Host', `${activity.host.name} (@${activity.host.handle})`]
+	];
+
+	const text = [
+		`${activity.host.name} approved your request — you're in for "${activity.title}".`,
+		'',
+		...rows.map(([k, v]) => `${k}: ${v}`),
+		'',
+		link
+	].join('\n');
+
+	const html = shell(
+		`You're in — ${escape(activity.title)}`,
+		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5"><strong>${escape(activity.host.name)}</strong> approved your request. A spot opened up for you.</p>` +
+			detailTable(rows) +
+			button(link, 'View the activity')
+	);
+
+	return send({ to, subject: `You're in: ${activity.title}`, html, text });
 }

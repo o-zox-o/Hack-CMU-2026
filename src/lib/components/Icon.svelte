@@ -33,7 +33,7 @@
 		UtensilsCrossed,
 		WashingMachine,
 		X
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	/* One place mapping our names to Lucide components, so call sites stay
 	   `<Icon name="pin" />` and swapping an icon is a one-line change. */
@@ -92,4 +92,14 @@
 	let Glyph = $derived(ICONS[name]);
 </script>
 
-<Glyph {size} {strokeWidth} class="shrink-0 {className}" aria-hidden="true" />
+<!--
+	Keyed on `name` deliberately. Lucide renders its shapes through an unkeyed
+	`{#each}` of `<svelte:element>`, so when the icon changes — including the
+	hydration swap from the server's guess to the viewer's real theme — Svelte
+	patches the new attributes onto the previous element tags. A moon's path
+	then lands inside a <rect> and draws an empty box. Keying forces a fresh
+	subtree, so every shape gets its correct tag.
+-->
+{#key name}
+	<Glyph {size} {strokeWidth} class="shrink-0 {className}" aria-hidden="true" />
+{/key}

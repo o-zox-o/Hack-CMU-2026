@@ -35,7 +35,10 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
-		"lucide-svelte": "^1.0.1",
+		"@lucide/svelte": "^1.43.0",
 		"mongodb": "^7.6.0"
+	},
+	"allowScripts": {
+		"fsevents@2.3.3": true
 	}
 }

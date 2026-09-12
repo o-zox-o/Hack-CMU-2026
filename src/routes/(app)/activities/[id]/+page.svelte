@@ -138,6 +138,53 @@
 				</ul>
 			</div>
 
+			{#if activity.waitlist.length > 0}
+				<div class="mt-4">
+					<h2 class="text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
+						{#if activity.isHost}
+							Asking to join · {activity.waitlist.length}
+						{:else}
+							Waiting · {activity.waitlist.length}
+						{/if}
+					</h2>
+					<ul class="mt-2 flex flex-col gap-2">
+						{#each activity.waitlist as person (person.id)}
+							<li class="flex flex-wrap items-center gap-2 rounded-lg bg-surface-sunk px-2 py-1.5">
+								<Avatar user={person} size="sm" />
+								<span class="text-fluid-sm font-bold text-ink">{person.name}</span>
+								<span class="text-fluid-xs text-ink-muted">@{person.handle}</span>
+
+								{#if activity.isHost}
+									<span class="ml-auto flex gap-1.5">
+										<form method="POST" action="?/decline" use:enhance>
+											<input type="hidden" name="userId" value={person.id} />
+											<button
+												type="submit"
+												class="rounded-full px-2.5 py-1 text-fluid-xs font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+											>
+												Decline
+											</button>
+										</form>
+										<form method="POST" action="?/approve" use:enhance>
+											<input type="hidden" name="userId" value={person.id} />
+											<button type="submit" class="btn btn-primary px-3 py-1">
+												<Icon name="check" size={13} strokeWidth={3} />
+												Approve
+											</button>
+										</form>
+									</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+					{#if activity.isHost && activity.isFull}
+						<p class="mt-2 text-fluid-xs text-ink-muted">
+							You're full — approving someone adds a spot.
+						</p>
+					{/if}
+				</div>
+			{/if}
+
 			<div class="mt-5">
 				<JoinButton {activity} block />
 			</div>
