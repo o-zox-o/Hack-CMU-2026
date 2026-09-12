@@ -35,7 +35,8 @@
 	<div class="hidden w-[300px] shrink-0 xl:block">
 		<div class="sticky top-[4.5rem]">
 			<RightRail
-				openNearby={data.openNearby}
+				open={data.open}
+				openLabel={data.openLabel}
 				locationSource={data.locationSource}
 				nearest={data.campuses[0]}
 			/>

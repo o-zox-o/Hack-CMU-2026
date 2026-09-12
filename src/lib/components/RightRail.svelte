@@ -4,13 +4,15 @@
 	import LocationSync from './LocationSync.svelte';
 
 	interface Props {
-		/** Open (not full, upcoming) activities within the default radius. */
-		openNearby: number;
+		/** Open (not full, upcoming) activities in the scope the user is viewing. */
+		open: number;
+		/** What that scope is, e.g. "open at Pitt" / "open within 50 mi". */
+		openLabel: string;
 		locationSource: 'gps' | 'campus';
 		nearest: { short: string; miles: number };
 	}
 
-	let { openNearby, locationSource, nearest }: Props = $props();
+	let { open, openLabel, locationSource, nearest }: Props = $props();
 </script>
 
 <aside class="flex flex-col gap-4">
@@ -24,8 +26,8 @@
 			</p>
 			<dl class="mt-3 flex gap-5 text-fluid-xs">
 				<div>
-					<dd class="text-fluid-lg font-extrabold text-ink">{openNearby}</dd>
-					<dt class="text-ink-muted">open near you</dt>
+					<dd class="text-fluid-lg font-extrabold text-ink">{open}</dd>
+					<dt class="text-ink-muted">{openLabel}</dt>
 				</div>
 				<div>
 					<dd class="text-fluid-lg font-extrabold text-ink">{nearest.short}</dd>
