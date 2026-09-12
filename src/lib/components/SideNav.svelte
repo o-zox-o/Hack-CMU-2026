@@ -38,7 +38,7 @@
 				class="{link} {isHome ? active : idle}"
 				aria-current={isHome ? 'page' : undefined}
 			>
-				<Icon name="pin" size={18} /> Near you
+				<Icon name="sparkles" size={18} /> For you
 			</a>
 		</li>
 		<li>
@@ -47,7 +47,16 @@
 				class="{link} {isFree && path === '/' ? active : idle}"
 				aria-current={isFree && path === '/' ? 'page' : undefined}
 			>
-				<span class="w-[18px] text-center" aria-hidden="true">🎁</span> Free stuff
+				<Icon name="gift" size={18} /> Free stuff
+			</a>
+		</li>
+		<li>
+			<a
+				href="/my-activities"
+				class="{link} {path === '/my-activities' ? active : idle}"
+				aria-current={path === '/my-activities' ? 'page' : undefined}
+			>
+				<Icon name="myActivities" size={18} /> My activities
 			</a>
 		</li>
 		<li>
@@ -74,7 +83,7 @@
 						class="{link} {isActive ? active : idle}"
 						aria-current={isActive ? 'page' : undefined}
 					>
-						<span class="w-[18px] text-center" aria-hidden="true">{category.emoji}</span>
+						<Icon name={category.icon} size={18} />
 						{category.label}
 					</a>
 				</li>

@@ -1,4 +1,4 @@
-import { CAMPUSES, RADII, campusMeta, type CampusId, type LatLng, type RadiusId } from './types';
+import { CAMPUSES, campusMeta, type CampusId, type LatLng, type Radius } from './types';
 
 /** Great-circle distance in miles. Plenty accurate for "which campuses are near me". */
 export function haversineMiles(a: LatLng, b: LatLng): number {
@@ -29,12 +29,13 @@ export function campusesByDistance(from: LatLng) {
 	})).sort((a, b) => a.miles - b.miles);
 }
 
-export function radiusMiles(id: RadiusId): number | null {
-	return RADII.find((r) => r.id === id)?.miles ?? null;
+/** Miles for a radius, or null when it is unlimited. */
+export function radiusMiles(radius: Radius): number | null {
+	return radius === 'all' ? null : radius;
 }
 
 /** Campus ids within `radius` of `from` (all of them when the radius is unlimited). */
-export function campusesWithin(from: LatLng, radius: RadiusId): CampusId[] {
+export function campusesWithin(from: LatLng, radius: Radius): CampusId[] {
 	const limit = radiusMiles(radius);
 	return campusesByDistance(from)
 		.filter((c) => limit === null || c.miles <= limit)

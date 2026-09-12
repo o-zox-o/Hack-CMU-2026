@@ -6,7 +6,11 @@ import { validateNewActivity } from '$lib/validate';
 
 /** GET /api/activities?category=&campus=&q=&sort= — same filters as the feed. */
 export const GET: RequestHandler = async ({ url, locals }) => {
-	const viewer = { id: locals.user.id, location: locals.location };
+	const viewer = {
+		id: locals.user.id,
+		location: locals.location,
+		interests: locals.user.interests
+	};
 	return json(await listActivities(feedQueryFromUrl(url), viewer));
 };
 

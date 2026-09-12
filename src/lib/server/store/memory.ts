@@ -74,6 +74,10 @@ export function createMemoryStore(): Store {
 			return doc ? toUser(doc) : null;
 		},
 
+		async getUserEmail(id) {
+			return state.users.get(id)?.email ?? null;
+		},
+
 		async verifyLogin(email, password) {
 			const doc = findByEmail(email);
 			if (!doc || !verifyPassword(password, doc.passwordHash)) return null;
@@ -90,6 +94,13 @@ export function createMemoryStore(): Store {
 			const doc = newUserDoc(input, handle, state.users.size % 8);
 			state.users.set(doc.id, doc);
 			return { ok: true, user: toUser(doc) };
+		},
+
+		async setInterests(userId, interests) {
+			const doc = state.users.get(userId);
+			if (!doc) return null;
+			doc.interests = interests;
+			return toUser(doc);
 		},
 
 		async listActivities(query = {}, viewer) {

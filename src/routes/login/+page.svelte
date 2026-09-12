@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Icon from '$lib/components/Icon.svelte';
+	import InterestPicker from '$lib/components/InterestPicker.svelte';
 	import { CAMPUSES } from '$lib/types';
 	import type { AuthErrors } from '$lib/validate';
 
@@ -37,7 +38,11 @@
 		<span class="text-fluid-2xl font-extrabold tracking-tight text-ink">tagalong</span>
 	</a>
 
-	<div class="leaf-card w-full max-w-md p-5 sm:p-7">
+	<div
+		class="leaf-card w-full p-5 transition-[max-width] sm:p-7 {mode === 'signup'
+			? 'max-w-lg'
+			: 'max-w-md'}"
+	>
 		<!-- Log in / Sign up switch -->
 		<div class="flex gap-1 rounded-lg bg-surface-sunk p-1" role="tablist">
 			<button
@@ -139,6 +144,16 @@
 					{#if errors.campus}<p class="mt-1 text-fluid-xs font-bold text-berry-500">
 							{errors.campus}
 						</p>{/if}
+				</div>
+			{/if}
+
+			{#if mode === 'signup'}
+				<div>
+					<span class="label">What are you into?</span>
+					<p class="-mt-1 mb-2 text-fluid-xs text-ink-muted">
+						Tap a few — your feed gets built around these.
+					</p>
+					<InterestPicker />
 				</div>
 			{/if}
 

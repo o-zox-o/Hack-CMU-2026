@@ -27,8 +27,10 @@ console.log(
 
 export const {
 	getUser,
+	getUserEmail,
 	verifyLogin,
 	createUser,
+	setInterests,
 	listActivities,
 	getActivity,
 	listComments,

@@ -93,7 +93,7 @@
 				<label class="label" for="category">Category</label>
 				<select id="category" name="category" class="field" bind:value={category}>
 					{#each CATEGORIES as c (c.id)}
-						<option value={c.id}>{c.emoji} {c.label}</option>
+						<option value={c.id}>{c.label}</option>
 					{/each}
 				</select>
 				{#if errors.category}<p class="mt-1 text-fluid-xs font-bold text-berry-500">

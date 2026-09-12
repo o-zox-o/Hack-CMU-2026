@@ -16,22 +16,33 @@
 
 export const CATEGORIES = [
 	{
+		id: 'hangouts',
+		label: 'Hangouts',
+		icon: 'hangouts',
+		blurb: 'Karaoke, hikes, study sessions — plans, not purchases'
+	},
+	{
 		id: 'subscriptions',
 		label: 'Subscriptions',
-		emoji: '🎧',
+		icon: 'subscriptions',
 		blurb: 'Spotify, Netflix, Duolingo — split the family plan'
 	},
 	{
 		id: 'groceries',
 		label: 'Groceries',
-		emoji: '🛒',
+		icon: 'groceries',
 		blurb: 'Costco runs, bulk buys, produce splits'
 	},
-	{ id: 'rides', label: 'Rides', emoji: '🚗', blurb: 'Airport Ubers, carpools, weekend trips' },
-	{ id: 'food', label: 'Food orders', emoji: '🍜', blurb: 'Hit the delivery minimum together' },
-	{ id: 'supplies', label: 'Supplies', emoji: '📦', blurb: 'IKEA hauls, dorm stuff, textbooks' },
-	{ id: 'errands', label: 'Errands', emoji: '🧺', blurb: 'Laundry, moving help, post office' },
-	{ id: 'other', label: 'Other', emoji: '🌿', blurb: 'Anything else worth sharing' }
+	{ id: 'rides', label: 'Rides', icon: 'rides', blurb: 'Airport Ubers, carpools, weekend trips' },
+	{ id: 'food', label: 'Food orders', icon: 'food', blurb: 'Hit the delivery minimum together' },
+	{
+		id: 'supplies',
+		label: 'Supplies',
+		icon: 'supplies',
+		blurb: 'IKEA hauls, dorm stuff, textbooks'
+	},
+	{ id: 'errands', label: 'Errands', icon: 'errands', blurb: 'Laundry, moving help, post office' },
+	{ id: 'other', label: 'Misc', icon: 'other', blurb: 'Anything else worth sharing' }
 ] as const;
 
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
@@ -123,20 +134,89 @@ export interface LatLng {
 	lng: number;
 }
 
-/** Feed radius choices. `miles: null` means no limit. */
-export const RADII = [
-	{ id: '10', miles: 10, label: '10 mi' },
-	{ id: '50', miles: 50, label: '50 mi' },
-	{ id: '150', miles: 150, label: '150 mi' },
-	{ id: 'all', miles: null, label: 'Anywhere' }
+/** How far out the feed looks: a distance in miles, or 'all' for no limit. */
+export type Radius = number | 'all';
+
+/** One-click distances. Any other positive number works too — see parseRadius. */
+export const RADIUS_PRESETS = [10, 50, 150] as const;
+export const DEFAULT_RADIUS: Radius = 10;
+export const MAX_RADIUS = 5000;
+
+/**
+ * Read a radius from a URL param or form field.
+ * Accepts 'all' or a positive number of miles; returns null for anything else
+ * so callers can fall back to DEFAULT_RADIUS.
+ */
+export function parseRadius(value: unknown): Radius | null {
+	if (value === 'all') return 'all';
+	if (typeof value !== 'string' && typeof value !== 'number') return null;
+	const miles = Number(value);
+	if (!Number.isFinite(miles) || miles <= 0 || miles > MAX_RADIUS) return null;
+	return Math.round(miles * 10) / 10; // quarter-mile precision is plenty
+}
+
+/** The value to put in `?within=`. */
+export function radiusParam(radius: Radius): string {
+	return radius === 'all' ? 'all' : String(radius);
+}
+
+/** "10 mi" / "Anywhere" — how a radius reads in the UI. */
+export function radiusLabel(radius: Radius): string {
+	return radius === 'all' ? 'Anywhere' : `${radius} mi`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Interests — the signup survey, and what the feed ranks against             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The tag catalogue. Kept to one screen of chips on purpose: the survey has to
+ * be answerable in about ten seconds or people skip it.
+ */
+export const INTERESTS = [
+	'food',
+	'coffee',
+	'cooking',
+	'groceries',
+	'bulk buys',
+	'farmers markets',
+	'free stuff',
+	'rides',
+	'driving',
+	'music',
+	'movies',
+	'gaming',
+	'board games',
+	'studying',
+	'textbooks',
+	'fitness',
+	'outdoors',
+	'thrifting',
+	'furniture',
+	'diy',
+	'art',
+	'photography',
+	'sustainability',
+	'errands'
 ] as const;
 
-export type RadiusId = (typeof RADII)[number]['id'];
-export const DEFAULT_RADIUS: RadiusId = '10';
+export type Interest = (typeof INTERESTS)[number];
 
-export function isRadiusId(value: unknown): value is RadiusId {
-	return typeof value === 'string' && RADII.some((r) => r.id === value);
+export function isInterest(value: unknown): value is Interest {
+	return typeof value === 'string' && (INTERESTS as readonly string[]).includes(value);
 }
+
+/** What a new activity inherits when its host doesn't tag it by hand. */
+export const CATEGORY_INTERESTS: Record<CategoryId, string[]> = {
+	hangouts: ['music', 'outdoors', 'board games', 'gaming'],
+	subscriptions: ['music', 'movies'],
+	groceries: ['groceries', 'cooking', 'bulk buys'],
+	rides: ['rides', 'driving'],
+	food: ['food'],
+	supplies: ['furniture', 'diy'],
+	errands: ['errands'],
+	other: []
+};
 
 /* -------------------------------------------------------------------------- */
 /* Users                                                                      */
@@ -171,6 +251,8 @@ export interface SignupInput {
 	email: string;
 	campus: CampusId;
 	password: string;
+	/** From the signup survey. May be empty — the feed falls back to time + distance. */
+	interests: string[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -248,6 +330,7 @@ export interface CommentView {
 /* -------------------------------------------------------------------------- */
 
 export const SORTS = [
+	{ id: 'foryou', label: 'For you' },
 	{ id: 'soonest', label: 'Soonest' },
 	{ id: 'nearest', label: 'Nearest' },
 	{ id: 'cheapest', label: 'Cheapest' },
@@ -265,7 +348,7 @@ export interface FeedQuery {
 	/** An explicit single campus. Overrides `within`. */
 	campus?: CampusId;
 	/** Radius around the viewer's location. Defaults to DEFAULT_RADIUS. */
-	within?: RadiusId;
+	within?: Radius;
 	/** Only activities that cost nothing — free food, giveaways. */
 	free?: boolean;
 	q?: string;
