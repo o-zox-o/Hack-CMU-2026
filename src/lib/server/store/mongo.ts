@@ -54,13 +54,56 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		db.collection<CommentRow>('comments').createIndex({ activityId: 1, createdAt: 1 })
 	]);
 
-	// Empty database -> load the demo data so a fresh deploy isn't blank.
-	if ((await db.collection('users').estimatedDocumentCount()) === 0) {
-		const { users, activities, comments } = seedData();
-		await db.collection<UserRow>('users').insertMany(users.map(toRow));
-		await db.collection<ActivityRow>('activities').insertMany(activities.map(toRow));
-		await db.collection<CommentRow>('comments').insertMany(comments.map(toRow));
-		console.log(`[db] seeded ${users.length} users, ${activities.length} activities`);
+	// Seed per collection, not all-or-nothing: a database that already has real
+	// sign-ups but no activities still needs the demo activities, and a re-run
+	// must never clobber a real account. Seed users are upserted by _id.
+	const { users: seedUsers, activities: seedActivities, comments: seedComments } = seedData();
+
+	const existing = await db
+		.collection<UserRow>('users')
+		.find({ _id: { $in: seedUsers.map((u) => u.id) } }, { projection: { _id: 1 } })
+		.toArray();
+	const have = new Set(existing.map((u) => u._id));
+	const missing = seedUsers.filter((u) => !have.has(u.id));
+	if (missing.length) {
+		await db.collection<UserRow>('users').insertMany(missing.map(toRow));
+		console.log(`[db] seeded ${missing.length} demo users`);
+	}
+
+	// Demo activities: insert the missing ones, and refresh the content of any
+	// that already exist so edits to seed.ts actually reach a live database.
+	// `memberIds` is deliberately excluded — that's the one field on a seeded
+	// activity that belongs to real people.
+	const activityCol = db.collection<ActivityRow>('activities');
+	const seenActivities = new Set(
+		(
+			await activityCol
+				.find({ _id: { $in: seedActivities.map((a) => a.id) } }, { projection: { _id: 1 } })
+				.toArray()
+		).map((a) => a._id)
+	);
+
+	const newActivities = seedActivities.filter((a) => !seenActivities.has(a.id));
+	if (newActivities.length) {
+		await activityCol.insertMany(newActivities.map(toRow));
+		console.log(`[db] seeded ${newActivities.length} activities`);
+	}
+
+	const refresh = seedActivities.filter((a) => seenActivities.has(a.id));
+	if (refresh.length) {
+		await activityCol.bulkWrite(
+			refresh.map((a) => {
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				const { _id, memberIds, ...content } = toRow(a);
+				return { updateOne: { filter: { _id }, update: { $set: content } } };
+			})
+		);
+		console.log(`[db] refreshed ${refresh.length} seeded activities`);
+	}
+
+	if ((await db.collection('comments').estimatedDocumentCount()) === 0) {
+		await db.collection<CommentRow>('comments').insertMany(seedComments.map(toRow));
+		console.log(`[db] seeded ${seedComments.length} comments`);
 	}
 
 	return db;
@@ -110,6 +153,11 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return row ? toUser(fromRow<UserDoc>(row)) : null;
 		},
 
+		async getUserEmail(id) {
+			const row = await (await users()).findOne({ _id: id }, { projection: { email: 1 } });
+			return row?.email ?? null;
+		},
+
 		async verifyLogin(email, password) {
 			const row = await (await users()).findOne({ email: email.toLowerCase() });
 			if (!row || !verifyPassword(password, row.passwordHash)) return null;
@@ -136,6 +184,17 @@ export function createMongoStore(uri: string, dbName: string): Store {
 				}
 			}
 			return { ok: false, reason: 'email-taken' };
+		},
+
+		async updateProfile(userId, patch) {
+			// Only the keys actually supplied get written.
+			const $set = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+			if (Object.keys($set).length === 0) return this.getUser(userId);
+
+			const row = await (
+				await users()
+			).findOneAndUpdate({ _id: userId }, { $set }, { returnDocument: 'after' });
+			return row ? toUser(fromRow<UserDoc>(row)) : null;
 		},
 
 		async listActivities(query = {}, viewer) {
@@ -229,6 +288,93 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			if (!current) return { ok: false, reason: 'not-found' };
 			if (current.hostId === userId) return { ok: false, reason: 'host-cannot-leave' };
 			return { ok: false, reason: 'not-a-member' };
+		},
+
+		/** Only joins the queue when it really is full — checked in the filter. */
+		async joinWaitlist(id, userId) {
+			const col = await activities();
+			const updated = await col.findOneAndUpdate(
+				{
+					_id: id,
+					memberIds: { $ne: userId },
+					waitlistIds: { $ne: userId },
+					$expr: { $gte: [{ $size: '$memberIds' }, '$spots'] }
+				},
+				{ $push: { waitlistIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (updated) return { ok: true, activity: await view(updated, { id: userId }) };
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			if ((current.waitlistIds ?? []).includes(userId))
+				return { ok: false, reason: 'already-waiting' };
+			return { ok: false, reason: 'not-full' };
+		},
+
+		async leaveWaitlist(id, userId) {
+			const col = await activities();
+			const updated = await col.findOneAndUpdate(
+				{ _id: id, waitlistIds: userId },
+				{ $pull: { waitlistIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (updated) return { ok: true, activity: await view(updated, { id: userId }) };
+			return {
+				ok: false,
+				reason: (await col.countDocuments({ _id: id })) ? 'not-waiting' : 'not-found'
+			};
+		},
+
+		/**
+		 * Move someone from the queue into the activity. Two atomic attempts:
+		 * take a free spot, or — if there are none — add one, which is the host
+		 * deciding to make room.
+		 */
+		async approveWaitlist(id, hostId, userId) {
+			const col = await activities();
+			const base = { _id: id, hostId, waitlistIds: userId };
+
+			const intoFreeSpot = await col.findOneAndUpdate(
+				{ ...base, $expr: { $lt: [{ $size: '$memberIds' }, '$spots'] } },
+				{ $pull: { waitlistIds: userId }, $push: { memberIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (intoFreeSpot) {
+				return { ok: true, activity: await view(intoFreeSpot, { id: hostId }), addedSpot: false };
+			}
+
+			const withNewSpot = await col.findOneAndUpdate(
+				base,
+				{ $pull: { waitlistIds: userId }, $push: { memberIds: userId }, $inc: { spots: 1 } },
+				{ returnDocument: 'after' }
+			);
+			if (withNewSpot) {
+				return { ok: true, activity: await view(withNewSpot, { id: hostId }), addedSpot: true };
+			}
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'not-waiting' };
+		},
+
+		async declineWaitlist(id, hostId, userId) {
+			const col = await activities();
+			const updated = await col.findOneAndUpdate(
+				{ _id: id, hostId, waitlistIds: userId },
+				{ $pull: { waitlistIds: userId } },
+				{ returnDocument: 'after' }
+			);
+			if (updated) {
+				return { ok: true, activity: await view(updated, { id: hostId }), addedSpot: false };
+			}
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'not-waiting' };
 		},
 
 		async addComment(activityId, authorId, body) {

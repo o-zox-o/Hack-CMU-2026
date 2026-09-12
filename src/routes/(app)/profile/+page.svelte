@@ -3,9 +3,10 @@
 	import ActivityCard from '$lib/components/ActivityCard.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import InterestPicker from '$lib/components/InterestPicker.svelte';
 	import { campusMeta } from '$lib/types';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	let user = $derived(data.user);
 
@@ -55,6 +56,55 @@
 			</div>
 		</div>
 	</section>
+
+	<!-- Profile: bio, city, and the interests the "For you" feed ranks against -->
+	<section class="leaf-card p-4 sm:p-5">
+		<h2 class="text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
+			Your profile
+		</h2>
+		<form method="POST" action="?/profile" class="mt-3 flex flex-col gap-4" use:enhance>
+			<div>
+				<span class="label">
+					Interests <span class="font-semibold text-brand-ink">— these build your feed</span>
+				</span>
+				<InterestPicker selected={user.interests} />
+			</div>
+
+			<div class="grid gap-4 sm:grid-cols-2">
+				<div>
+					<label class="label" for="bio">About you</label>
+					<textarea id="bio" name="bio" class="field min-h-20 resize-y" maxlength="300"
+						>{user.bio}</textarea
+					>
+				</div>
+				<div>
+					<label class="label" for="location">Where you're based</label>
+					<input id="location" name="location" class="field" maxlength="80" value={user.location} />
+					<p class="mt-1 text-fluid-xs text-ink-muted">
+						Shown on your profile. Distances come from your campus.
+					</p>
+				</div>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<button type="submit" class="btn btn-primary">Save profile</button>
+				{#if form?.saved}
+					<span class="inline-flex items-center gap-1 text-fluid-xs font-bold text-brand-ink">
+						<Icon name="check" size={14} strokeWidth={3} /> Saved
+					</span>
+				{/if}
+			</div>
+		</form>
+	</section>
+
+	<a
+		href="/my-activities"
+		class="leaf-card flex items-center gap-3 px-4 py-3 text-fluid-sm font-bold text-ink transition-colors hover:bg-surface-hover"
+	>
+		<Icon name="myActivities" size={18} class="text-brand-ink" />
+		See all my activities in one place
+		<Icon name="arrowUp" size={16} class="ml-auto rotate-90 text-ink-muted" />
+	</a>
 
 	<!-- Hosting -->
 	<section class="flex flex-col gap-3">

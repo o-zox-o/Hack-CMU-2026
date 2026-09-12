@@ -6,6 +6,8 @@
 
 import { perPersonCents } from '$lib/format';
 import { campusesWithin, distanceToCampus } from '$lib/geo';
+import { matchPercent, rankByRelevance } from '$lib/matching';
+import { CATEGORY_INTERESTS } from '$lib/types';
 import type {
 	Activity,
 	ActivityView,
@@ -36,6 +38,8 @@ export function fallbackUser(id: string): User {
 		name: 'Deleted user',
 		handle: 'deleted',
 		campus: 'cmu',
+		location: '',
+		interests: [],
 		bio: '',
 		avatarSeed: 0,
 		joinedAt: new Date(0).toISOString()
@@ -61,6 +65,8 @@ export function newUserDoc(input: SignupInput, handle: string, avatarSeed: numbe
 		email: input.email.toLowerCase(),
 		passwordHash: hashPassword(input.password),
 		campus: input.campus,
+		location: '',
+		interests: input.interests,
 		bio: '',
 		avatarSeed,
 		joinedAt: new Date().toISOString()
@@ -81,8 +87,12 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 		startsAt: input.startsAt,
 		spots: input.spots,
 		memberIds: [hostId], // the host occupies one spot
+		waitlistIds: [],
 		costCents: input.costCents,
 		costBasis: input.costBasis,
+		// Untagged activities inherit their category's tags so they can still
+		// be matched against someone's interests.
+		interests: CATEGORY_INTERESTS[input.category] ?? [],
 		createdAt: new Date().toISOString()
 	};
 }
@@ -103,6 +113,7 @@ export function referencedUserIds(rows: Activity[]): string[] {
 	for (const a of rows) {
 		ids.add(a.hostId);
 		for (const m of a.memberIds) ids.add(m);
+		for (const w of a.waitlistIds ?? []) ids.add(w);
 	}
 	return [...ids];
 }
@@ -132,13 +143,20 @@ export function toView(
 		createdAt: activity.createdAt,
 		host: user(activity.hostId),
 		members: activity.memberIds.map(user),
+		waitlist: (activity.waitlistIds ?? []).map(user),
 		commentCount,
 		distanceMiles: viewer?.location ? distanceToCampus(viewer.location, activity.campus) : null,
+		matchPercent: matchPercent(
+			{ interests: viewer?.interests, location: viewer?.location },
+			activity
+		),
 		spotsTaken,
 		spotsLeft: Math.max(0, activity.spots - spotsTaken),
 		isFull: spotsTaken >= activity.spots,
 		joined: viewerId ? activity.memberIds.includes(viewerId) : false,
-		isHost: viewerId ? activity.hostId === viewerId : false
+		onWaitlist: viewerId ? (activity.waitlistIds ?? []).includes(viewerId) : false,
+		isHost: viewerId ? activity.hostId === viewerId : false,
+		interests: activity.interests
 	};
 }
 
@@ -176,7 +194,12 @@ export function searchAndSort(rows: Activity[], query: FeedQuery, viewer?: Viewe
 	const perHead = (a: Activity) => perPersonCents(a.costCents, a.costBasis, a.spots);
 	const miles = (a: Activity) =>
 		viewer?.location ? distanceToCampus(viewer.location, a.campus) : 0;
-	const sort = query.sort ?? 'soonest';
+	const sort = query.sort ?? 'foryou';
+
+	// The default feed is ranked against the viewer, not the clock.
+	if (sort === 'foryou') {
+		return rankByRelevance({ interests: viewer?.interests, location: viewer?.location }, rows);
+	}
 
 	return [...rows].sort((a, b) => {
 		if (sort === 'new') return b.createdAt.localeCompare(a.createdAt);

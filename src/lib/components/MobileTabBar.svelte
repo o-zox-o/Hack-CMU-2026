@@ -5,7 +5,13 @@
 	let path = $derived(page.url.pathname);
 
 	const TABS = [
-		{ href: '/', label: 'Feed', icon: 'home', match: (p: string) => p === '/' },
+		{ href: '/', label: 'For you', icon: 'sparkles', match: (p: string) => p === '/' },
+		{
+			href: '/my-activities',
+			label: 'Mine',
+			icon: 'myActivities',
+			match: (p: string) => p === '/my-activities'
+		},
 		{
 			href: '/activities/new',
 			label: 'Create',

@@ -3,6 +3,7 @@
 	import type { User } from '$lib/types';
 	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
+	import ThemeToggle from './ThemeToggle.svelte';
 
 	interface Props {
 		user: User;
@@ -56,10 +57,17 @@
 			</label>
 		</form>
 
-		<a href="/activities/new" class="btn btn-primary shrink-0 px-3 sm:px-4" title="New activity">
+		<!-- Desktop only: below md the mobile tab bar carries the create action. -->
+		<a
+			href="/activities/new"
+			class="btn btn-primary hidden shrink-0 px-4 md:inline-flex"
+			title="New activity"
+		>
 			<Icon name="plus" size={16} strokeWidth={3} />
-			<span class="hidden sm:inline">Create</span>
+			Create
 		</a>
+
+		<ThemeToggle />
 
 		<a href="/profile" class="shrink-0 rounded-full" aria-label="Your profile">
 			<Avatar {user} />

@@ -42,8 +42,23 @@
 			<Icon name="check" size={14} strokeWidth={3} /> Joined
 		</button>
 	</form>
+{:else if activity.onWaitlist}
+	<form method="POST" action="/activities/{activity.id}?/cancelRequest" use:enhance={refresh}>
+		<button
+			type="submit"
+			class="btn btn-ghost {width}"
+			disabled={busy}
+			title="Withdraw your request"
+		>
+			<Icon name="clock" size={14} /> Waiting for host
+		</button>
+	</form>
 {:else if activity.isFull}
-	<button type="button" class="btn btn-ghost {width}" disabled>Full</button>
+	<form method="POST" action="/activities/{activity.id}?/requestSpot" use:enhance={refresh}>
+		<button type="submit" class="btn btn-ghost {width}" disabled={busy}>
+			<Icon name="clock" size={14} /> Ask to join
+		</button>
+	</form>
 {:else}
 	<form method="POST" action="/activities/{activity.id}?/join" use:enhance={refresh}>
 		<button type="submit" class="btn btn-primary {width}" disabled={busy}>

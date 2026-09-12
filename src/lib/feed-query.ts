@@ -2,8 +2,8 @@ import {
 	DEFAULT_RADIUS,
 	isCampusId,
 	isCategoryId,
-	isRadiusId,
 	isSortId,
+	parseRadius,
 	type FeedQuery
 } from './types';
 
@@ -12,7 +12,8 @@ import {
  * Shared by the feed page and GET /api/activities so both filter identically.
  *
  * The feed is location-based: by default you see activities at campuses within
- * DEFAULT_RADIUS of you. `?within=50` widens it, `?within=all` drops the limit,
+ * DEFAULT_RADIUS of you. `?within=50` (or any number of miles) widens it,
+ * `?within=all` drops the limit,
  * and `?campus=pitt` pins it to one campus regardless of distance.
  */
 export function feedQueryFromUrl(url: URL): FeedQuery {
@@ -25,9 +26,9 @@ export function feedQueryFromUrl(url: URL): FeedQuery {
 	return {
 		category: isCategoryId(category) ? category : undefined,
 		campus: isCampusId(campus) ? campus : undefined,
-		within: isRadiusId(within) ? within : DEFAULT_RADIUS,
+		within: parseRadius(within) ?? DEFAULT_RADIUS,
 		free: url.searchParams.get('free') === '1',
-		sort: isSortId(sort) ? sort : 'soonest',
+		sort: isSortId(sort) ? sort : 'foryou',
 		q: q || undefined
 	};
 }

@@ -1,9 +1,28 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { addComment, getActivity, joinActivity, leaveActivity, listComments } from '$lib/server/db';
+import {
+	addComment,
+	approveWaitlist,
+	declineWaitlist,
+	getActivity,
+	joinActivity,
+	joinWaitlist,
+	leaveActivity,
+	leaveWaitlist,
+	listComments
+} from '$lib/server/db';
+import {
+	notifyHostOfWaitlistRequest,
+	notifyWaitlistApproved,
+	sendJoinEmails
+} from '$lib/server/email';
 
 export const load = (async ({ params, locals }) => {
-	const activity = await getActivity(params.id, { id: locals.user.id, location: locals.location });
+	const activity = await getActivity(params.id, {
+		id: locals.user.id,
+		location: locals.location,
+		interests: locals.user.interests
+	});
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
 	return { activity, comments: await listComments(params.id) };
@@ -15,6 +34,20 @@ const JOIN_MESSAGES = {
 	'already-joined': "You're already in."
 } as const;
 
+const WAITLIST_MESSAGES = {
+	'not-found': 'That activity is gone.',
+	'not-full': "There's still room — you can just join.",
+	'already-joined': "You're already in.",
+	'already-waiting': "You've already asked to join.",
+	'not-waiting': "You weren't on the list."
+} as const;
+
+const APPROVAL_MESSAGES = {
+	'not-found': 'That activity is gone.',
+	'not-host': 'Only the host can do that.',
+	'not-waiting': 'They are no longer waiting.'
+} as const;
+
 const LEAVE_MESSAGES = {
 	'not-found': 'That activity is gone.',
 	'not-a-member': "You weren't in this one.",
@@ -22,15 +55,61 @@ const LEAVE_MESSAGES = {
 } as const;
 
 export const actions = {
-	join: async ({ params, locals }) => {
+	join: async ({ params, locals, url }) => {
 		const result = await joinActivity(params.id, locals.user.id);
 		if (!result.ok) return fail(409, { message: JOIN_MESSAGES[result.reason] });
+
+		// Tell the host someone joined, and confirm the details to the joiner.
+		// Awaited so it isn't cut off when the serverless function ends; neither
+		// throws, so a mail problem can't fail the join.
+		await sendJoinEmails(result.activity, locals.user, url.origin);
+
 		return { message: null };
 	},
 
 	leave: async ({ params, locals }) => {
 		const result = await leaveActivity(params.id, locals.user.id);
 		if (!result.ok) return fail(409, { message: LEAVE_MESSAGES[result.reason] });
+		return { message: null };
+	},
+
+	/** Ask to join something that's already full. */
+	requestSpot: async ({ params, locals, url }) => {
+		const result = await joinWaitlist(params.id, locals.user.id);
+		if (!result.ok) return fail(409, { message: WAITLIST_MESSAGES[result.reason] });
+
+		await notifyHostOfWaitlistRequest(result.activity, locals.user, url.origin);
+		return { message: null };
+	},
+
+	/** Withdraw that request. */
+	cancelRequest: async ({ params, locals }) => {
+		const result = await leaveWaitlist(params.id, locals.user.id);
+		if (!result.ok) return fail(409, { message: WAITLIST_MESSAGES[result.reason] });
+		return { message: null };
+	},
+
+	/** Host lets someone in off the list. */
+	approve: async ({ request, params, locals, url }) => {
+		const form = await request.formData();
+		const userId = String(form.get('userId') ?? '');
+
+		const result = await approveWaitlist(params.id, locals.user.id, userId);
+		if (!result.ok) return fail(409, { message: APPROVAL_MESSAGES[result.reason] });
+
+		await notifyWaitlistApproved(result.activity, userId, url.origin);
+		return { message: null };
+	},
+
+	/** Host turns a request down. */
+	decline: async ({ request, params, locals }) => {
+		const form = await request.formData();
+		const result = await declineWaitlist(
+			params.id,
+			locals.user.id,
+			String(form.get('userId') ?? '')
+		);
+		if (!result.ok) return fail(409, { message: APPROVAL_MESSAGES[result.reason] });
 		return { message: null };
 	},
 

@@ -128,6 +128,9 @@ export const actions = {
 		}
 
 		setSessionCookie(cookies, created.user.id);
-		redirect(303, safeNext(url.searchParams.get('next')));
+
+		// Straight into onboarding; it hands back to `next` when they're done.
+		const next = safeNext(url.searchParams.get('next'));
+		redirect(303, next === '/' ? '/welcome' : `/welcome?next=${encodeURIComponent(next)}`);
 	}
 } satisfies Actions;

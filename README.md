@@ -74,6 +74,17 @@ The in-memory store **does not work on Vercel**: each request can land on a fres
 
 `hooks.server.ts` sets the session cookie with `secure: true` outside dev, which Vercel's HTTPS satisfies.
 
+## Email
+
+Joining an activity sends two messages through Resend's HTTP API (no SDK):
+the host gets "X joined your activity", and the person joining gets a
+confirmation with when, where, their share of the cost, and who's hosting.
+
+Set `RESEND_API_KEY` in `.env` / Vercel to turn it on. Without a key both are
+logged instead of sent, so joining behaves identically either way, and a mail
+failure can never fail a join. `EMAIL_FROM` must be a verified domain to reach
+anyone — Resend's default sandbox sender only delivers to the account owner.
+
 ## Backend notes
 
 - Documents use our string ids as `_id` (`u_mei`, `a_costco`), so no ObjectId conversion anywhere.

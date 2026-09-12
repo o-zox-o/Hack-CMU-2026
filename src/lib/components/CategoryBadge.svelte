@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { categoryMeta, type CategoryId } from '$lib/types';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		category: CategoryId;
@@ -13,7 +14,7 @@
 </script>
 
 {#snippet inner()}
-	<span aria-hidden="true">{meta.emoji}</span>
+	<Icon name={meta.icon} size={12} />
 	<span>{meta.label}</span>
 {/snippet}
 

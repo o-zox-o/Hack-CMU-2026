@@ -12,10 +12,13 @@ import type { Store } from './store/types';
 
 export { DEMO_PASSWORD } from './seed';
 export type {
+	ApprovalResult,
 	JoinResult,
 	LeaveResult,
+	ProfilePatch,
 	SignupResult,
-	Viewer
+	Viewer,
+	WaitlistResult
 } from './store/types';
 
 const uri = env.MONGODB_URI;
@@ -26,16 +29,16 @@ export const store: Store = uri
 
 console.log(
 	`[db] backend: ${
-		uri
-			? `MongoDB (${env.MONGODB_DB || 'tagalong'})`
-			: 'in-memory (set MONGODB_URI to persist)'
+		uri ? `MongoDB (${env.MONGODB_DB || 'tagalong'})` : 'in-memory (set MONGODB_URI to persist)'
 	}`
 );
 
 export const {
 	getUser,
+	getUserEmail,
 	verifyLogin,
 	createUser,
+	updateProfile,
 	listActivities,
 	getActivity,
 	listComments,
@@ -44,5 +47,9 @@ export const {
 	createActivity,
 	joinActivity,
 	leaveActivity,
+	joinWaitlist,
+	leaveWaitlist,
+	approveWaitlist,
+	declineWaitlist,
 	addComment
 } = store;

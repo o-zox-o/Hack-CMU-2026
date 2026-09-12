@@ -131,5 +131,9 @@ export function validateSignup(
 	if (password.length < MIN_PASSWORD) errors.password = `At least ${MIN_PASSWORD} characters.`;
 
 	if (Object.keys(errors).length) return { ok: false, errors };
-	return { ok: true, value: { name, email, campus: campus as SignupInput['campus'], password } };
+	// Interests are collected on /welcome, right after this.
+	return {
+		ok: true,
+		value: { name, email, campus: campus as SignupInput['campus'], password, interests: [] }
+	};
 }
