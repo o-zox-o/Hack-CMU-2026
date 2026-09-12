@@ -9,7 +9,7 @@ export const load = (async ({ locals, url }) => {
 	const viewer = {
 		id: locals.user.id,
 		location: locals.location,
-		interests: locals.user.interests
+		interests: locals.interests
 	};
 
 	/* The rail's count follows whatever place the user is actually looking at.

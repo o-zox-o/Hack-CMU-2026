@@ -67,6 +67,14 @@
 			</span>
 			<span aria-hidden="true">·</span>
 			<time datetime={activity.createdAt}>{timeAgo(activity.createdAt)}</time>
+			{#if activity.isWildcard}
+				<span
+					class="inline-flex items-center gap-1 rounded-full bg-sky-300/40 px-2 py-0.5 font-bold text-sky-700"
+					title="Not your usual thing — that's the point"
+				>
+					<Icon name="sparkles" size={11} /> Wildcard
+				</span>
+			{/if}
 		</div>
 
 		<!-- Title + preview -->

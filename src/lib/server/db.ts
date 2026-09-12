@@ -35,6 +35,8 @@ console.log(
 
 export const {
 	getUser,
+	getSessionUser,
+	refreshLearnedInterests,
 	getUserEmail,
 	verifyLogin,
 	createUser,
@@ -52,5 +54,7 @@ export const {
 	leaveWaitlist,
 	approveWaitlist,
 	declineWaitlist,
-	addComment
+	addComment,
+	rateActivity,
+	hostStanding
 } = store;

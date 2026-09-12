@@ -245,6 +245,11 @@ export interface User {
 /** Stored shape — the `users` collection. Server-only. */
 export interface UserDoc extends User {
 	email: string;
+	/**
+	 * Picked up from what you actually join, not from the survey. Kept on the
+	 * stored doc only, so it shapes your feed without showing on your profile.
+	 */
+	learnedInterests?: string[];
 	passwordHash: string;
 	/** Set by Auth0 on first login. Absent for password accounts + seed data. */
 	auth0Id?: string;
@@ -265,6 +270,18 @@ export interface SignupInput {
 
 export type CostBasis = 'per-person' | 'total';
 
+/**
+ * Who can find an activity.
+ *   'public'  — in the feed, like everything else.
+ *   'private' — kept out of the feed and search. The link is the invite:
+ *               anyone the host sends it to can open it and ask to join.
+ */
+export type Visibility = 'public' | 'private';
+
+export function isVisibility(value: unknown): value is Visibility {
+	return value === 'public' || value === 'private';
+}
+
 /** Stored shape in the database. Server-only. */
 export interface Activity {
 	id: string;
@@ -278,10 +295,18 @@ export interface Activity {
 	spots: number;
 	memberIds: string[];
 	/**
-	 * People who asked to join after it filled up, oldest request first.
+	 * People waiting on the host, oldest request first — either because it
+	 * filled up or because the host approves everyone.
 	 * Optional so activities stored before waitlists existed still parse.
 	 */
 	waitlistIds?: string[];
+	/**
+	 * Both optional so activities stored before hosts could choose still
+	 * parse — as public, and joinable without asking.
+	 */
+	visibility?: Visibility;
+	/** Every join goes through the host, even while there are spots free. */
+	approvalRequired?: boolean;
 	costCents: number;
 	costBasis: CostBasis;
 	createdAt: string;
@@ -301,6 +326,9 @@ export interface ActivityView {
 	costCents: number;
 	costBasis: CostBasis;
 	createdAt: string;
+	/** Resolved from the stored doc, so the UI never has to guess a default. */
+	visibility: Visibility;
+	approvalRequired: boolean;
 	host: User;
 	members: User[];
 	/** Pending requests, oldest first. Only the host acts on these. */
@@ -318,7 +346,65 @@ export interface ActivityView {
 	/** Has the current viewer asked to join a full activity? */
 	onWaitlist: boolean;
 	isHost: boolean;
+	/** Slipped into the For you feed on purpose, outside your usual taste. */
+	isWildcard?: boolean;
+	rating: RatingSummary;
 	interests: string[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Ratings                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * An anonymous score left after an activity happened.
+ *
+ * `raterId` exists only to stop double-rating and to stop people rating
+ * activities they didn't go to. It is never put in a view — see RatingSummary,
+ * which is all the UI ever sees.
+ */
+export interface Rating {
+	id: string;
+	activityId: string;
+	hostId: string;
+	raterId: string;
+	/** 1 (bad) to 5 (great). */
+	score: number;
+	createdAt: string;
+}
+
+export const MIN_SCORE = 1;
+export const MAX_SCORE = 5;
+
+/** A score at or below this counts against the host. */
+export const BAD_SCORE = 2;
+
+/** Ratings are only shown once this many exist, so nobody is identifiable. */
+export const MIN_RATINGS_TO_SHOW = 2;
+
+/** How many badly-rated activities before a host is warned. */
+export const WARNING_THRESHOLD = 3;
+
+/** A host's record across everything they've run. */
+export interface HostStanding {
+	hosted: number;
+	ratedActivities: number;
+	/** Activities whose average came out at or below BAD_SCORE. */
+	poorlyRated: number;
+	/** Average across every rating they've received, or null if too few. */
+	average: number | null;
+	/** True once poorlyRated reaches WARNING_THRESHOLD. */
+	warned: boolean;
+}
+
+export interface RatingSummary {
+	count: number;
+	/** Null until MIN_RATINGS_TO_SHOW ratings exist. */
+	average: number | null;
+	/** Has the current viewer already rated this? */
+	rated: boolean;
+	/** Can the viewer rate — went to it, and it has happened? */
+	canRate: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -346,6 +432,7 @@ export interface CommentView {
 
 export const SORTS = [
 	{ id: 'foryou', label: 'For you' },
+	{ id: 'random', label: 'Surprise me' },
 	{ id: 'soonest', label: 'Soonest' },
 	{ id: 'nearest', label: 'Nearest' },
 	{ id: 'cheapest', label: 'Cheapest' },
@@ -380,4 +467,13 @@ export interface NewActivityInput {
 	spots: number;
 	costCents: number;
 	costBasis: CostBasis;
+	visibility: Visibility;
+	approvalRequired: boolean;
 }
+
+/**
+ * What a host may change after posting. Same fields as the create form —
+ * the edit form submits all of them — but partial so a caller can nudge one
+ * thing (bumping `spots` to let more people in) without restating the rest.
+ */
+export type ActivityPatch = Partial<NewActivityInput>;

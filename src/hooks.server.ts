@@ -1,12 +1,13 @@
 import { json, redirect, type Handle } from '@sveltejs/kit';
 import { readSessionToken, SESSION_COOKIE } from '$lib/server/auth';
-import { getUser } from '$lib/server/db';
+import { getSessionUser } from '$lib/server/db';
 import { campusLocation, LOCATION_COOKIE, parseLatLng } from '$lib/geo';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const token = event.cookies.get(SESSION_COOKIE);
 	const userId = token ? readSessionToken(token) : null;
-	const user = userId ? await getUser(userId) : null;
+	const session = userId ? await getSessionUser(userId) : null;
+	const user = session?.user ?? null;
 
 	const path = event.url.pathname;
 	const isLoginPage = path === '/login';
@@ -26,6 +27,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// /login is the only page where user can be null.
 	event.locals.user = user!;
+	// Picked interests plus learned ones; only the picked ones are public.
+	event.locals.interests = session?.interests ?? [];
 
 	const gps = parseLatLng(event.cookies.get(LOCATION_COOKIE));
 

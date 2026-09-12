@@ -4,6 +4,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import JoinButton from '$lib/components/JoinButton.svelte';
+	import RatingBox from '$lib/components/RatingBox.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
 	import {
 		formatCents,
@@ -184,6 +185,8 @@
 					{/if}
 				</div>
 			{/if}
+
+			<RatingBox {activity} />
 
 			<div class="mt-5">
 				<JoinButton {activity} block />
