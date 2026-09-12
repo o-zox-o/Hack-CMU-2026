@@ -186,10 +186,14 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return { ok: false, reason: 'email-taken' };
 		},
 
-		async setInterests(userId, interests) {
+		async updateProfile(userId, patch) {
+			// Only the keys actually supplied get written.
+			const $set = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+			if (Object.keys($set).length === 0) return this.getUser(userId);
+
 			const row = await (
 				await users()
-			).findOneAndUpdate({ _id: userId }, { $set: { interests } }, { returnDocument: 'after' });
+			).findOneAndUpdate({ _id: userId }, { $set }, { returnDocument: 'after' });
 			return row ? toUser(fromRow<UserDoc>(row)) : null;
 		},
 

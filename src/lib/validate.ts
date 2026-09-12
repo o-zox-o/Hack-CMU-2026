@@ -10,7 +10,6 @@ import { parseCents } from './format';
 import {
 	isCampusId,
 	isCategoryId,
-	isInterest,
 	type CostBasis,
 	type NewActivityInput,
 	type SignupInput
@@ -131,12 +130,10 @@ export function validateSignup(
 	if (!isCampusId(campus)) errors.campus = 'Pick your campus.';
 	if (password.length < MIN_PASSWORD) errors.password = `At least ${MIN_PASSWORD} characters.`;
 
-	// Survey answers: keep only known tags, cap the list, drop duplicates.
-	const interests = [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12);
-
 	if (Object.keys(errors).length) return { ok: false, errors };
+	// Interests are collected on /welcome, right after this.
 	return {
 		ok: true,
-		value: { name, email, campus: campus as SignupInput['campus'], password, interests }
+		value: { name, email, campus: campus as SignupInput['campus'], password, interests: [] }
 	};
 }

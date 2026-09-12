@@ -298,6 +298,8 @@ export interface ActivityView {
 
 	/* Pre-derived fields */
 	distanceMiles: number | null;
+	/** How well this matches the viewer, 0-100. Null if they skipped the survey. */
+	matchPercent: number | null;
 	spotsTaken: number;
 	spotsLeft: number;
 	isFull: boolean;

@@ -11,7 +11,7 @@ import { createMongoStore } from './store/mongo';
 import type { Store } from './store/types';
 
 export { DEMO_PASSWORD } from './seed';
-export type { JoinResult, LeaveResult, SignupResult, Viewer } from './store/types';
+export type { JoinResult, LeaveResult, ProfilePatch, SignupResult, Viewer } from './store/types';
 
 const uri = env.MONGODB_URI;
 
@@ -30,7 +30,7 @@ export const {
 	getUserEmail,
 	verifyLogin,
 	createUser,
-	setInterests,
+	updateProfile,
 	listActivities,
 	getActivity,
 	listComments,
