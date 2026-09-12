@@ -10,7 +10,7 @@
  */
 
 import { env } from '$env/dynamic/private';
-import { formatPrice, formatWhen } from '$lib/format';
+import { formatCents, formatPrice, formatWhen, perPersonCents } from '$lib/format';
 import { getUserEmail } from './db';
 import type { ActivityView, User } from '$lib/types';
 
@@ -59,6 +59,29 @@ async function send(mail: Mail): Promise<MailResult> {
 	}
 }
 
+/** The four facts both emails carry, as an HTML table. */
+function detailTable(rows: [string, string][]): string {
+	return `<table style="width:100%;border-collapse:collapse;background:#f2ecdd;border-radius:8px;font-size:14px">${rows
+		.map(
+			([label, value]) =>
+				`<tr><td style="padding:10px 14px;color:#857f70">${label}</td><td style="padding:10px 14px;font-weight:600">${escape(value)}</td></tr>`
+		)
+		.join('')}</table>`;
+}
+
+function button(href: string, label: string): string {
+	return `<p style="margin:20px 0 0"><a href="${href}" style="display:inline-block;background:#46a53c;color:#fffdf7;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:14px">${label}</a></p>`;
+}
+
+function shell(heading: string, body: string): string {
+	return `
+<div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#221f18;background:#fffdf7">
+  <p style="margin:0 0 4px;font-size:13px;color:#857f70">tagalong</p>
+  <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3">${heading}</h1>
+  ${body}
+</div>`.trim();
+}
+
 const escape = (s: string) =>
 	s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -78,45 +101,91 @@ export async function notifyHostOfJoin(
 	if (!to) return { ok: false, reason: 'not-configured' };
 
 	const link = `${origin}/activities/${activity.id}`;
-	const when = formatWhen(activity.startsAt);
-	const price = formatPrice(activity.costCents, activity.costBasis);
 	const spots = activity.isFull
 		? "That's everyone — you're full."
 		: `${activity.spotsLeft} spot${activity.spotsLeft === 1 ? '' : 's'} left.`;
 
+	const rows: [string, string][] = [
+		['When', formatWhen(activity.startsAt)],
+		['Where', activity.location],
+		['Cost', formatPrice(activity.costCents, activity.costBasis)],
+		['Spots', `${activity.spotsTaken} of ${activity.spots} — ${spots}`]
+	];
+
 	const text = [
 		`${joiner.name} (@${joiner.handle}) joined "${activity.title}".`,
 		'',
-		`When:  ${when}`,
-		`Where: ${activity.location}`,
-		`Cost:  ${price}`,
-		`Who's in: ${activity.spotsTaken} of ${activity.spots}. ${spots}`,
+		...rows.map(([k, v]) => `${k}: ${v}`),
 		'',
 		link
 	].join('\n');
 
-	const html = `
-<div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#221f18;background:#fffdf7">
-  <p style="margin:0 0 4px;font-size:13px;color:#857f70">tagalong</p>
-  <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3">
-    ${escape(joiner.name)} joined your activity
-  </h1>
-  <p style="margin:0 0 16px;font-size:15px;line-height:1.5">
-    <strong>${escape(joiner.name)}</strong> (@${escape(joiner.handle)}) is in for
-    <strong>${escape(activity.title)}</strong>.
-  </p>
-  <table style="width:100%;border-collapse:collapse;background:#f2ecdd;border-radius:8px;font-size:14px">
-    <tr><td style="padding:10px 14px;color:#857f70">When</td><td style="padding:10px 14px;font-weight:600">${escape(when)}</td></tr>
-    <tr><td style="padding:10px 14px;color:#857f70">Where</td><td style="padding:10px 14px;font-weight:600">${escape(activity.location)}</td></tr>
-    <tr><td style="padding:10px 14px;color:#857f70">Cost</td><td style="padding:10px 14px;font-weight:600">${escape(price)}</td></tr>
-    <tr><td style="padding:10px 14px;color:#857f70">Spots</td><td style="padding:10px 14px;font-weight:600">${activity.spotsTaken} of ${activity.spots} — ${escape(spots)}</td></tr>
-  </table>
-  <p style="margin:20px 0 0">
-    <a href="${link}" style="display:inline-block;background:#46a53c;color:#fffdf7;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:14px">
-      View the activity
-    </a>
-  </p>
-</div>`.trim();
+	const html = shell(
+		`${escape(joiner.name)} joined your activity`,
+		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5"><strong>${escape(joiner.name)}</strong> (@${escape(joiner.handle)}) is in for <strong>${escape(activity.title)}</strong>.</p>` +
+			detailTable(rows) +
+			button(link, 'View the activity')
+	);
 
 	return send({ to, subject: `${joiner.name} joined "${activity.title}"`, html, text });
+}
+
+/**
+ * Confirm to the person who just joined. This is the one that matters to them:
+ * where to be, when, and what they owe.
+ */
+export async function confirmJoin(
+	activity: ActivityView,
+	joiner: User,
+	origin: string
+): Promise<MailResult> {
+	const to = await getUserEmail(joiner.id);
+	if (!to) return { ok: false, reason: 'not-configured' };
+
+	const link = `${origin}/activities/${activity.id}`;
+	const yourShare =
+		activity.costCents === 0
+			? 'Free'
+			: `${formatCents(perPersonCents(activity.costCents, activity.costBasis, activity.spotsTaken))}${
+					activity.costBasis === 'total' ? ` (split ${activity.spotsTaken} ways so far)` : ''
+				}`;
+
+	const rows: [string, string][] = [
+		['When', formatWhen(activity.startsAt)],
+		['Where', activity.location],
+		['Your share', yourShare],
+		['Host', `${activity.host.name} (@${activity.host.handle})`]
+	];
+
+	const text = [
+		`You're in for "${activity.title}".`,
+		'',
+		...rows.map(([k, v]) => `${k}: ${v}`),
+		'',
+		"Can't make it any more? Leave from the activity page so someone else can take the spot.",
+		'',
+		link
+	].join('\n');
+
+	const html = shell(
+		`You're in — ${escape(activity.title)}`,
+		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(activity.host.name)} is expecting you. Here are the details:</p>` +
+			detailTable(rows) +
+			`<p style="margin:16px 0 0;font-size:13px;color:#857f70">Can't make it any more? Leave from the activity page so someone else can take the spot.</p>` +
+			button(link, 'View the activity')
+	);
+
+	return send({ to, subject: `You're in: ${activity.title}`, html, text });
+}
+
+/** Both sides of a join, in parallel. Neither can fail the request. */
+export async function sendJoinEmails(
+	activity: ActivityView,
+	joiner: User,
+	origin: string
+): Promise<void> {
+	await Promise.all([
+		notifyHostOfJoin(activity, joiner, origin),
+		confirmJoin(activity, joiner, origin)
+	]);
 }
