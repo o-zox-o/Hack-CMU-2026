@@ -6,6 +6,7 @@
 	import JoinButton from '$lib/components/JoinButton.svelte';
 	import LiveLocationMap from '$lib/components/LiveLocationMap.svelte';
 	import RatingBox from '$lib/components/RatingBox.svelte';
+	import ShareButton from '$lib/components/ShareButton.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
 	import VisibilityBadge from '$lib/components/VisibilityBadge.svelte';
 	import { costSplit, formatMiles, formatPrice, formatWhen, timeAgo } from '$lib/format';
@@ -84,6 +85,11 @@
 				<h1 class="min-w-0 flex-1 text-fluid-2xl leading-tight font-extrabold text-ink">
 					{activity.title}
 				</h1>
+				<ShareButton
+					path="/activities/{activity.id}"
+					title={activity.title}
+					emphasis={activity.visibility === 'private'}
+				/>
 				{#if activity.isHost}
 					<a href="/activities/{activity.id}/edit" class="btn btn-ghost shrink-0 px-3 py-1">
 						<Icon name="pencil" size={13} /> Edit
@@ -245,7 +251,7 @@
 
 			{#if activity.joined && activity.sharingOpen}
 				<div class="mt-4">
-					<LiveLocationMap {activity} />
+					<LiveLocationMap {activity} meId={data.user.id} />
 				</div>
 			{/if}
 
