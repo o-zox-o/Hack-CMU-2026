@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const viewer = {
 		id: locals.user.id,
 		location: locals.location,
-		interests: locals.user.interests
+		interests: locals.interests
 	};
 	return json(await listActivities(feedQueryFromUrl(url), viewer));
 };

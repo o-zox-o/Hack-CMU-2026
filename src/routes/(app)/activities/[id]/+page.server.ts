@@ -9,7 +9,9 @@ import {
 	joinWaitlist,
 	leaveActivity,
 	leaveWaitlist,
-	listComments
+	listComments,
+	rateActivity,
+	refreshLearnedInterests
 } from '$lib/server/db';
 import {
 	notifyHostOfWaitlistRequest,
@@ -21,11 +23,11 @@ export const load = (async ({ params, locals }) => {
 	const activity = await getActivity(params.id, {
 		id: locals.user.id,
 		location: locals.location,
-		interests: locals.user.interests
+		interests: locals.interests
 	});
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
-	return { activity, comments: await listComments(params.id) };
+	return { activity, comments: await listComments(params.id, locals.user.id) };
 }) satisfies PageServerLoad;
 
 const JOIN_MESSAGES = {
@@ -48,6 +50,14 @@ const APPROVAL_MESSAGES = {
 	'not-waiting': 'They are no longer waiting.'
 } as const;
 
+const RATE_MESSAGES = {
+	'not-found': 'That activity is gone.',
+	'not-attended': 'Only people who went can rate it.',
+	'not-yet': "It hasn't happened yet.",
+	'already-rated': 'You already rated this one.',
+	'bad-score': 'Pick between 1 and 5.'
+} as const;
+
 const LEAVE_MESSAGES = {
 	'not-found': 'That activity is gone.',
 	'not-a-member': "You weren't in this one.",
@@ -62,7 +72,11 @@ export const actions = {
 		// Tell the host someone joined, and confirm the details to the joiner.
 		// Awaited so it isn't cut off when the serverless function ends; neither
 		// throws, so a mail problem can't fail the join.
-		await sendJoinEmails(result.activity, locals.user, url.origin);
+		await Promise.all([
+			sendJoinEmails(result.activity, locals.user, url.origin),
+			// Joining is the signal; three of a kind and it becomes an interest.
+			refreshLearnedInterests(locals.user.id)
+		]);
 
 		return { message: null };
 	},
@@ -110,6 +124,15 @@ export const actions = {
 			String(form.get('userId') ?? '')
 		);
 		if (!result.ok) return fail(409, { message: APPROVAL_MESSAGES[result.reason] });
+		return { message: null };
+	},
+
+	/** Anonymous — the score is stored against the activity, not shown per person. */
+	rate: async ({ request, params, locals }) => {
+		const form = await request.formData();
+		const result = await rateActivity(params.id, locals.user.id, Number(form.get('score')));
+
+		if (!result.ok) return fail(409, { message: RATE_MESSAGES[result.reason] });
 		return { message: null };
 	},
 

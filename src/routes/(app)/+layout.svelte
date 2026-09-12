@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import GrassRain from '$lib/components/GrassRain.svelte';
 	import LocationSync from '$lib/components/LocationSync.svelte';
 	import MobileTabBar from '$lib/components/MobileTabBar.svelte';
 	import RightRail from '$lib/components/RightRail.svelte';
@@ -72,3 +73,6 @@
 {/if}
 
 <MobileTabBar />
+
+<!-- Fires when you join something. Lives here so it survives the card re-render. -->
+<GrassRain />

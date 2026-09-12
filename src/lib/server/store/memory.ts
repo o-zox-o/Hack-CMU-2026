@@ -6,10 +6,22 @@
  */
 
 import { verifyPassword } from '../auth';
+import { learnedInterests } from '$lib/matching';
 import { SEED_VERSION, seedData } from '../seed';
-import type { Activity, Comment, User, UserDoc } from '$lib/types';
+import {
+	MAX_SCORE,
+	MIN_SCORE,
+	type Activity,
+	type Comment,
+	type Rating,
+	type User,
+	type UserDoc
+} from '$lib/types';
 import {
 	campusScope,
+	canSeeComment,
+	hostStandingFrom,
+	ratingSummary,
 	handleBase,
 	newActivityDoc,
 	newCommentDoc,
@@ -24,6 +36,7 @@ import type { Store, Viewer } from './types';
 
 interface MemoryState {
 	version: number;
+	ratings: Rating[];
 	users: Map<string, UserDoc>;
 	activities: Map<string, Activity>;
 	comments: Comment[];
@@ -37,6 +50,7 @@ function boot(): MemoryState {
 	const { users, activities, comments } = seedData();
 	return {
 		version: SEED_VERSION,
+		ratings: [],
 		users: new Map(users.map((u) => [u.id, u])),
 		activities: new Map(activities.map((a) => [a.id, a])),
 		comments
@@ -59,9 +73,24 @@ export function createMemoryStore(): Store {
 	};
 	const commentCount = (activityId: string) =>
 		state.comments.filter((c) => c.activityId === activityId).length;
+	const scoresFor = (activityId: string) =>
+		state.ratings.filter((r) => r.activityId === activityId).map((r) => r.score);
+	const hasRated = (activityId: string, viewerId?: string) =>
+		Boolean(
+			viewerId && state.ratings.some((r) => r.activityId === activityId && r.raterId === viewerId)
+		);
+
 	const views = (rows: Activity[], viewer?: Viewer) => {
 		const users = usersFor(referencedUserIds(rows));
-		return rows.map((a) => toView(a, users, commentCount(a.id), viewer));
+		return rows.map((a) =>
+			toView(
+				a,
+				users,
+				commentCount(a.id),
+				viewer,
+				ratingSummary(scoresFor(a.id), a, viewer?.id, hasRated(a.id, viewer?.id))
+			)
+		);
 	};
 	const view = (a: Activity, viewer?: Viewer) => views([a], viewer)[0];
 	const byStart = (a: Activity, b: Activity) => a.startsAt.localeCompare(b.startsAt);
@@ -72,6 +101,24 @@ export function createMemoryStore(): Store {
 		async getUser(id) {
 			const doc = state.users.get(id);
 			return doc ? toUser(doc) : null;
+		},
+
+		async getSessionUser(id) {
+			const doc = state.users.get(id);
+			if (!doc) return null;
+			return {
+				user: toUser(doc),
+				interests: [...new Set([...doc.interests, ...(doc.learnedInterests ?? [])])]
+			};
+		},
+
+		async refreshLearnedInterests(userId) {
+			const doc = state.users.get(userId);
+			if (!doc) return;
+			const categories = [...state.activities.values()]
+				.filter((a) => a.memberIds.includes(userId))
+				.map((a) => a.category);
+			doc.learnedInterests = learnedInterests(categories, doc.interests);
 		},
 
 		async getUserEmail(id) {
@@ -100,6 +147,7 @@ export function createMemoryStore(): Store {
 			const doc = state.users.get(userId);
 			if (!doc) return null;
 			if (patch.bio !== undefined) doc.bio = patch.bio;
+			if (patch.isPrivate !== undefined) doc.isPrivate = patch.isPrivate;
 			if (patch.interests !== undefined) doc.interests = patch.interests;
 			return toUser(doc);
 		},
@@ -118,12 +166,20 @@ export function createMemoryStore(): Store {
 			return a ? view(a, viewer) : null;
 		},
 
-		async listComments(activityId) {
+		async listComments(activityId, viewerId) {
 			const rows = state.comments
 				.filter((c) => c.activityId === activityId)
 				.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 			const users = usersFor(rows.map((c) => c.authorId));
-			return rows.map((c) => toCommentView(c, users));
+
+			const activity = state.activities.get(activityId);
+			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
+
+			const allowed = rows.filter((c) => canSeeComment(users.get(c.authorId), viewerId, isMember));
+			return {
+				visible: allowed.map((c) => toCommentView(c, users)),
+				hidden: rows.length - allowed.length
+			};
 		},
 
 		async activitiesHostedBy(userId, viewer) {
@@ -136,6 +192,17 @@ export function createMemoryStore(): Store {
 				.filter((a) => a.hostId !== userId && a.memberIds.includes(userId))
 				.sort(byStart);
 			return views(rows, viewer);
+		},
+
+		async grassLeaderboard(limit = 10) {
+			const counts = new Map<string, number>();
+			for (const a of state.activities.values()) {
+				for (const m of a.memberIds) counts.set(m, (counts.get(m) ?? 0) + 1);
+			}
+			return [...counts.entries()]
+				.map(([userId, score]) => ({ userId, score }))
+				.sort((a, b) => b.score - a.score || a.userId.localeCompare(b.userId))
+				.slice(0, limit);
 		},
 
 		async createActivity(input, hostId) {
@@ -203,6 +270,37 @@ export function createMemoryStore(): Store {
 			if (!(a.waitlistIds ?? []).includes(userId)) return { ok: false, reason: 'not-waiting' };
 			a.waitlistIds = (a.waitlistIds ?? []).filter((w) => w !== userId);
 			return { ok: true, activity: view(a, { id: hostId }), addedSpot: false };
+		},
+
+		async rateActivity(activityId, raterId, score) {
+			if (!Number.isInteger(score) || score < MIN_SCORE || score > MAX_SCORE) {
+				return { ok: false, reason: 'bad-score' };
+			}
+			const activity = state.activities.get(activityId);
+			if (!activity) return { ok: false, reason: 'not-found' };
+			if (!activity.memberIds.includes(raterId)) return { ok: false, reason: 'not-attended' };
+			if (new Date(activity.startsAt).getTime() > Date.now())
+				return { ok: false, reason: 'not-yet' };
+			if (hasRated(activityId, raterId)) return { ok: false, reason: 'already-rated' };
+
+			state.ratings.push({
+				id: `r_${crypto.randomUUID().slice(0, 8)}`,
+				activityId,
+				hostId: activity.hostId,
+				raterId,
+				score,
+				createdAt: new Date().toISOString()
+			});
+			return { ok: true };
+		},
+
+		async hostStanding(hostId) {
+			const hosted = [...state.activities.values()].filter((a) => a.hostId === hostId);
+			const averages = hosted
+				.map((a) => scoresFor(a.id))
+				.filter((scores) => scores.length > 0)
+				.map((scores) => scores.reduce((x, y) => x + y, 0) / scores.length);
+			return hostStandingFrom(hosted.length, averages);
 		},
 
 		async addComment(activityId, authorId, body) {
