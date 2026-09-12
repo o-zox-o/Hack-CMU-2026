@@ -19,7 +19,12 @@
 	let split = $derived(costSplit(activity.costCents, activity.costBasis, activity.spots));
 
 	let commentDraft = $state('');
-	let commentVisibility = $state<'everyone' | 'members'>('everyone');
+	/* Starts on whatever the author's profile says, so a private account sees
+	   its own setting reflected rather than having to remember it each time. */
+	// svelte-ignore state_referenced_locally
+	let commentVisibility = $state<'everyone' | 'members'>(
+		data.user?.isPrivate ? 'members' : 'everyone'
+	);
 	let posting = $state(false);
 </script>
 

@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { isCommentVisibility } from '$lib/types';
+import { isCommentVisibility, type CommentVisibility } from '$lib/types';
 import {
 	addComment,
 	approveWaitlist,
@@ -159,10 +159,16 @@ export const actions = {
 		if (body.length === 0) return fail(400, { message: 'Write something first.' });
 		if (body.length > 1000) return fail(400, { message: 'Keep comments under 1000 characters.' });
 
-		// Anything unrecognised is public: the safe default is the one that
-		// doesn't quietly hide what someone meant everyone to read.
+		/* No explicit choice falls back to the author's profile-wide setting, so
+		   a private profile still means private comments. Defaulting everyone to
+		   'everyone' here would silently un-private every private account, which
+		   is the wrong way round for a default to be wrong. */
 		const raw = form.get('visibility');
-		const visibility = isCommentVisibility(raw) ? raw : 'everyone';
+		const visibility: CommentVisibility = isCommentVisibility(raw)
+			? raw
+			: locals.user.isPrivate
+				? 'members'
+				: 'everyone';
 
 		const created = await addComment(params.id, locals.user.id, body, visibility);
 		if (!created) return fail(404, { message: 'That activity is gone.' });
