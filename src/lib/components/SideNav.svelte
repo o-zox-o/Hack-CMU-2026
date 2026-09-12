@@ -38,7 +38,7 @@
 				class="{link} {isHome ? active : idle}"
 				aria-current={isHome ? 'page' : undefined}
 			>
-				<Icon name="pin" size={18} /> Near you
+				<Icon name="sparkles" size={18} /> For you
 			</a>
 		</li>
 		<li>

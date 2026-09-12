@@ -10,7 +10,7 @@ import type { Activity, Comment, UserDoc } from '$lib/types';
 import { hashPassword } from './auth';
 
 /** Bump whenever you edit the data below so a running dev server re-seeds. */
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 export interface SeedData {
 	users: UserDoc[];
@@ -386,6 +386,54 @@ export function seedData(): SeedData {
 			costBasis: 'per-person',
 			interests: ['groceries', 'bulk buys', 'driving'],
 			createdAt: hoursAgo(12)
+		},
+		{
+			id: 'a_karaoke',
+			title: 'Karaoke in Shadyside Friday — room fits 6',
+			body: "Booked a room 9pm–11pm, it's $60 split however many show up. No talent required, we are all terrible.",
+			category: 'hangouts',
+			campus: 'cmu',
+			hostId: 'u_satsuki',
+			location: 'Tiki Lounge, Shadyside',
+			startsAt: hoursFromNow(44),
+			spots: 6,
+			memberIds: ['u_satsuki', 'u_theo'],
+			costCents: 6000,
+			costBasis: 'total',
+			interests: ['music', 'board games'],
+			createdAt: hoursAgo(4)
+		},
+		{
+			id: 'a_frick_hike',
+			title: 'Easy Frick Park loop Sunday morning',
+			body: 'About 4 miles, casual pace, back by noon. Free — just show up. Dogs welcome.',
+			category: 'hangouts',
+			campus: 'pitt',
+			hostId: 'u_kanta',
+			location: 'Frick Park, Beechwood entrance',
+			startsAt: hoursFromNow(64),
+			spots: 8,
+			memberIds: ['u_kanta', 'u_pria'],
+			costCents: 0,
+			costBasis: 'per-person',
+			interests: ['outdoors', 'fitness'],
+			createdAt: hoursAgo(16)
+		},
+		{
+			id: 'a_study_hunt',
+			title: 'Finals grind at Hunt — 3rd floor, all day Saturday',
+			body: 'Claiming the big table at 10am. Come and go as you like, we take a coffee run every couple of hours.',
+			category: 'hangouts',
+			campus: 'cmu',
+			hostId: 'u_nori',
+			location: 'Hunt Library, 3rd floor',
+			startsAt: hoursFromNow(34),
+			spots: 10,
+			memberIds: ['u_nori', 'u_mei'],
+			costCents: 0,
+			costBasis: 'per-person',
+			interests: ['studying', 'coffee'],
+			createdAt: hoursAgo(8)
 		}
 	];
 

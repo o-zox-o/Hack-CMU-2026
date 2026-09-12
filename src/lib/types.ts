@@ -16,6 +16,12 @@
 
 export const CATEGORIES = [
 	{
+		id: 'hangouts',
+		label: 'Hangouts',
+		icon: 'hangouts',
+		blurb: 'Karaoke, hikes, study sessions — plans, not purchases'
+	},
+	{
 		id: 'subscriptions',
 		label: 'Subscriptions',
 		icon: 'subscriptions',
@@ -36,7 +42,7 @@ export const CATEGORIES = [
 		blurb: 'IKEA hauls, dorm stuff, textbooks'
 	},
 	{ id: 'errands', label: 'Errands', icon: 'errands', blurb: 'Laundry, moving help, post office' },
-	{ id: 'other', label: 'Other', icon: 'other', blurb: 'Anything else worth sharing' }
+	{ id: 'other', label: 'Misc', icon: 'other', blurb: 'Anything else worth sharing' }
 ] as const;
 
 export type CategoryId = (typeof CATEGORIES)[number]['id'];
@@ -202,6 +208,7 @@ export function isInterest(value: unknown): value is Interest {
 
 /** What a new activity inherits when its host doesn't tag it by hand. */
 export const CATEGORY_INTERESTS: Record<CategoryId, string[]> = {
+	hangouts: ['music', 'outdoors', 'board games', 'gaming'],
 	subscriptions: ['music', 'movies'],
 	groceries: ['groceries', 'cooking', 'bulk buys'],
 	rides: ['rides', 'driving'],
