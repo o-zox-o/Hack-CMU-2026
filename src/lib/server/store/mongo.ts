@@ -70,6 +70,7 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		console.log(`[db] seeded ${missing.length} demo users`);
 	}
 
+<<<<<<< Updated upstream
 	// Same idea for activities: add any demo row that isn't there yet, so a
 	// database that's already live still picks up newly seeded examples.
 	const haveActivities = new Set(
@@ -85,6 +86,27 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		await db.collection<ActivityRow>('activities').insertMany(newActivities.map(toRow));
 		console.log(`[db] seeded ${newActivities.length} activities`);
 	}
+=======
+	const activityCol = db.collection<ActivityRow>('activities');
+
+const existingActivities = await activityCol
+	.find(
+		{ _id: { $in: seedActivities.map((a) => a.id) } },
+		{ projection: { _id: 1 } }
+	)
+	.toArray();
+
+const existingActivityIds = new Set(existingActivities.map((a) => a._id));
+
+const missingActivities = seedActivities.filter(
+	(a) => !existingActivityIds.has(a.id)
+);
+
+if (missingActivities.length) {
+	await activityCol.insertMany(missingActivities.map(toRow));
+	console.log(`[db] seeded ${missingActivities.length} new activities`);
+}
+>>>>>>> Stashed changes
 
 	if ((await db.collection('comments').estimatedDocumentCount()) === 0) {
 		await db.collection<CommentRow>('comments').insertMany(seedComments.map(toRow));
