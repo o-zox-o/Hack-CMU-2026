@@ -29,10 +29,10 @@ Or create a new account from Sign up (`.edu` emails). New accounts get a short i
 
 ### What to click through
 
-1. **For you (`/`)** — a mixed feed of hangouts and practical plans, ranked for this user based on interests. Look for **% match** on cards. Filter by category. Set a mile radius for how far away you're willing to go.
-2. **Open a hangout** — See who’s already going, comments, and join the group. Joining an activity celebrates that (**you touched grass**) and rains confetti grass.
-3. **Profile** — **Grass touched** score, a growing garden (bare patch to a meadow), and badges.
-4. **Post** — host a hangout or a split-the-cost run.
+1. **For you (`/`)** - a mixed feed of hangouts and practical plans, ranked for this user based on interests. Look for **% match** on cards. Filter by category. Set a mile radius for how far away you're willing to go.
+2. **Open a hangout** - See who’s already going, comments, and join the group. Joining an activity celebrates that (**you touched grass**) and rains confetti grass.
+3. **Profile** - **Grass touched** score, a growing garden (bare patch to a meadow), and badges.
+4. **Post** - host a hangout or a split-the-cost run.
 5. Allow location if asked, otherwise it uses your campus.
 
 ---
@@ -41,9 +41,9 @@ Or create a new account from Sign up (`.edu` emails). New accounts get a short i
 
 College group chats are how people make plans _and_ how they never make it out. tagalong is the public version:
 
-- **Hangouts first** — karaoke, hikes, game nights, watch parties, or bulk buys.
-- **Find similar people, not just spots** — interest survey on signup, match % on the feed, so you find folks you’d actually spend an afternoon with.
-- **Split when it helps** — Costco, Ubers, Spotify, delivery to lower individual costs.
+- **Hangouts first** - karaoke, hikes, game nights, watch parties, or bulk buys.
+- **Find similar people, not just spots** - interest survey on signup, match % on the feed, so you find folks you’d actually spend an afternoon with.
+- **Split when it helps** - Costco, Ubers, Spotify, delivery to lower individual costs.
 
 ---
 
@@ -62,11 +62,11 @@ Open **Profile** on the Demo account to see a garden that’s already growing.
 
 ## Stack
 
-| Layer     | Choice                                        |
-| --------- | --------------------------------------------- |
-| UI        | Svelte 5 (runes) + Tailwind 4                 |
-| App / API | SvelteKit 2                                   |
-| Data      | MongoDB Atlas                                 |
-| Auth      | Auth0                                         |
-| Matching  | Interests + campus + budget + distance        |
-| Email     | Optional [Resend](https://resend.com) on join |
+| Layer     | Choice                        |
+| --------- | ----------------------------- |
+| UI        | Svelte 5 (runes) + Tailwind 4 |
+| App / API | SvelteKit 2                   |
+| Data      | MongoDB Atlas                 |
+| Auth      | Auth0                         |
+| Matching  | Gemini API                    |
+| Email     | Resend                        |
