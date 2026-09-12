@@ -7,14 +7,7 @@
 	import RatingBox from '$lib/components/RatingBox.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
 	import VisibilityBadge from '$lib/components/VisibilityBadge.svelte';
-	import {
-		formatCents,
-		formatMiles,
-		formatPrice,
-		formatWhen,
-		perPersonCents,
-		timeAgo
-	} from '$lib/format';
+	import { costSplit, formatMiles, formatPrice, formatWhen, timeAgo } from '$lib/format';
 	import { campusMeta } from '$lib/types';
 
 	let { data, form } = $props();
@@ -22,12 +15,8 @@
 	let activity = $derived(data.activity);
 	let campus = $derived(campusMeta(activity.campus));
 
-	/* What one person actually pays, given who's in right now. */
-	let eachPays = $derived(
-		activity.costCents === 0
-			? null
-			: formatCents(perPersonCents(activity.costCents, activity.costBasis, activity.spotsTaken))
-	);
+	/* The half of the price the host didn't type, against the full spot count. */
+	let split = $derived(costSplit(activity.costCents, activity.costBasis, activity.spots));
 
 	let commentDraft = $state('');
 	let commentVisibility = $state<'everyone' | 'members'>('everyone');
@@ -122,10 +111,8 @@
 						<dt class="text-fluid-xs font-bold tracking-wide text-ink-muted uppercase">Cost</dt>
 						<dd class="font-bold text-ink">
 							{formatPrice(activity.costCents, activity.costBasis)}
-							{#if eachPays && activity.costBasis === 'total'}
-								<span class="font-semibold text-ink-muted"
-									>, {eachPays} each with {activity.spotsTaken} in</span
-								>
+							{#if split}
+								<span class="block text-fluid-xs font-semibold text-ink-muted">{split}</span>
 							{/if}
 						</dd>
 					</div>

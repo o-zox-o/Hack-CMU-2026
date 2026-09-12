@@ -102,7 +102,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Icon from '$lib/components/Icon.svelte';
-	import { formatCents, parseCents, perPersonCents } from '$lib/format';
+	import { costSplit, parseCents } from '$lib/format';
 	import { CAMPUSES, CATEGORIES } from '$lib/types';
 	import { MAX_SPOTS, type FieldErrors } from '$lib/validate';
 
@@ -162,19 +162,14 @@
 
 	let submitting = $state(false);
 
-	/* Live maths so the host sees both halves of the split before posting.
-	   Always the number they did NOT type: echoing "$100 each" back at someone
-	   who just typed 100 into the per-person box tells them nothing. */
+	/* Live maths so the host sees both halves before posting: always the number
+	   they did NOT type. Same helper the activity page uses, so the figure
+	   doesn't change wording between writing the post and reading it. */
 	let preview = $derived.by(() => {
 		const cents = parseCents(cost);
 		const headcount = Number(spots);
-		if (cents === null || cents === 0 || !Number.isInteger(headcount) || headcount < 1) return null;
-
-		// Approximate only when it's a division that rounds up.
-		if (costBasis === 'total') {
-			return `≈ ${formatCents(perPersonCents(cents, 'total', headcount))} each`;
-		}
-		return `${formatCents(cents * headcount)} total if ${headcount} come`;
+		if (cents === null || !Number.isInteger(headcount)) return null;
+		return costSplit(cents, costBasis === 'total' ? 'total' : 'per-person', headcount);
 	});
 
 	/* Editing something that already started shouldn't fight you over its own

@@ -27,6 +27,29 @@ export function perPersonCents(cents: number, basis: CostBasis, headcount: numbe
 	return Math.ceil(cents / Math.max(1, headcount));
 }
 
+/**
+ * The other half of the price, worked out from the one number the host typed:
+ * what one person pays when they gave a total, or what the group pays when
+ * they gave a per-person price.
+ *
+ * Always against the full spot count, never how many have joined so far. The
+ * split is the deal being advertised, and "$30 each with 1 in" is both alarming
+ * and wrong about what anyone will actually pay.
+ *
+ * Null when there's nothing to work out: free, or a group of one.
+ */
+export function costSplit(cents: number, basis: CostBasis, spots: number): string | null {
+	if (cents === 0 || !Number.isFinite(spots) || spots < 2) return null;
+
+	if (basis === 'per-person') return `${formatCents(cents * spots)} total if ${spots} come`;
+
+	// "≈" only when it really is approximate. The split rounds up so the group
+	// never collects less than the bill, but $35 across 5 is exactly $7.
+	const each = perPersonCents(cents, 'total', spots);
+	const rounded = cents % spots !== 0;
+	return `${rounded ? '≈ ' : ''}${formatCents(each)} each if ${spots} come`;
+}
+
 /** Integer cents -> what belongs in the "$" input: "12", "12.50", or "" for free. */
 export function centsToInput(cents: number): string {
 	if (cents === 0) return '';

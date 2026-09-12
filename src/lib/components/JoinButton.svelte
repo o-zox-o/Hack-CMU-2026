@@ -36,7 +36,7 @@
 
 	const refresh = submit();
 	const joinAndCelebrate = submit(() =>
-		celebration.start("Congrats, you touched grass! That's one more blade.")
+		celebration.start("Congrats, you're planning to touch grass!")
 	);
 
 	let width = $derived(block ? 'w-full' : '');
