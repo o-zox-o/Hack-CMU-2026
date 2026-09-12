@@ -40,9 +40,9 @@ Or create a new account from Sign up (`.edu` emails). New accounts get a short i
 
 College group chats are how people make plans *and* how they never make it out. tagalong is the public version:
 
-- **Hangouts first** — karaoke, hikes, game nights, watch parties, or bulk buys.
-- **Find similar people, not just spots** — interest survey on signup, match % on the feed, so you find folks you’d actually spend an afternoon with.
-- **Split when it helps** — Costco, Ubers, Spotify, delivery to lower individual costs.
+- **Hangouts first** - karaoke, hikes, game nights, watch parties, or bulk buys.
+- **Find similar people, not just spots** - interest survey on signup, match % on the feed, so you find folks you’d actually spend an afternoon with.
+- **Split when it helps** - Costco, Ubers, Spotify, delivery to lower individual costs.
 
 ---
 
