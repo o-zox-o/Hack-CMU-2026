@@ -1,43 +1,48 @@
-import { MongoClient } from 'mongodb';
+/**
+ * The data layer entry point. Picks a backend once:
+ *
+ *   MONGODB_URI set   -> MongoDB
+ *   MONGODB_URI unset -> in-memory
+ */
+
 import { env } from '$env/dynamic/private';
+import { createMemoryStore } from './store/memory';
+import { createMongoStore } from './store/mongo';
+import type { Store } from './store/types';
 
-let client: MongoClient | null = null;
-let connecting: Promise<MongoClient> | null = null;
+export { DEMO_PASSWORD } from './seed';
+export type {
+	JoinResult,
+	LeaveResult,
+	SignupResult,
+	Viewer
+} from './store/types';
 
-function getClient(): MongoClient {
-	if (!client) {
-		if (!env.MONGODB_URI) throw new Error('MONGODB_URI is not set');
-		client = new MongoClient(env.MONGODB_URI);
-	}
-	return client;
-}
+const uri = env.MONGODB_URI;
 
-export async function getDb() {
-	const c = getClient();
-	if (!connecting) {
-		// If the connection attempt fails, clear it so the next call retries
-		// instead of every future request rejecting against a dead promise.
-		connecting = c.connect().catch((err) => {
-			connecting = null;
-			throw err;
-		});
-	}
-	await connecting;
-	return c.db(env.MONGODB_DB || 'travelbuddy');
-}
+export const store: Store = uri
+	? createMongoStore(uri, env.MONGODB_DB || 'tagalong')
+	: createMemoryStore();
 
-let usersIndexesEnsured: Promise<unknown> | null = null;
+console.log(
+	`[db] backend: ${
+		uri
+			? `MongoDB (${env.MONGODB_DB || 'tagalong'})`
+			: 'in-memory (set MONGODB_URI to persist)'
+	}`
+);
 
-export async function getUsersCollection() {
-	const db = await getDb();
-	const users = db.collection('users');
-
-	// Guards against two simultaneous signups racing find-then-insert into
-	// duplicate user docs for the same Auth0 account.
-	if (!usersIndexesEnsured) {
-		usersIndexesEnsured = users.createIndex({ auth0Id: 1 }, { unique: true });
-	}
-	await usersIndexesEnsured;
-
-	return users;
-}
+export const {
+	getUser,
+	verifyLogin,
+	createUser,
+	listActivities,
+	getActivity,
+	listComments,
+	activitiesHostedBy,
+	activitiesJoinedBy,
+	createActivity,
+	joinActivity,
+	leaveActivity,
+	addComment
+} = store;

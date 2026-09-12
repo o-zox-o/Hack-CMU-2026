@@ -1,0 +1,103 @@
+<script lang="ts">
+	import { formatMiles, formatPrice, formatWhen, timeAgo } from '$lib/format';
+	import { campusMeta, categoryMeta, type ActivityView } from '$lib/types';
+	import Avatar from './Avatar.svelte';
+	import Icon from './Icon.svelte';
+	import JoinButton from './JoinButton.svelte';
+	import SpotsMeter from './SpotsMeter.svelte';
+
+	interface Props {
+		activity: ActivityView;
+	}
+
+	let { activity }: Props = $props();
+
+	let href = $derived(`/activities/${activity.id}`);
+	let campus = $derived(campusMeta(activity.campus));
+	let category = $derived(categoryMeta(activity.category));
+	let free = $derived(activity.costCents === 0);
+</script>
+
+<article
+	class="leaf-card flex overflow-hidden transition-[border-color,box-shadow] hover:border-hedge-strong hover:shadow-lift"
+>
+	<!-- Category tile in the left gutter — links into the filtered feed. -->
+	<a
+		href="/?category={activity.category}"
+		class="flex w-12 shrink-0 items-start justify-center bg-surface-sunk pt-3 text-xl transition-colors hover:bg-brand-wash sm:w-14 sm:text-2xl"
+		aria-label="All {category.label.toLowerCase()} activities"
+	>
+		<span aria-hidden="true">{category.emoji}</span>
+	</a>
+
+	<div class="min-w-0 flex-1 px-3 py-2.5 sm:px-4">
+		<!-- Meta row: category · campus · host · age -->
+		<div class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-fluid-xs text-ink-muted">
+			<a href="/?category={activity.category}" class="font-bold text-brand-ink hover:underline">
+				{category.label}
+			</a>
+			<span aria-hidden="true">·</span>
+			<span class="font-bold">{campus.short}</span>
+			{#if activity.distanceMiles !== null}
+				<span aria-hidden="true">·</span>
+				<span>{formatMiles(activity.distanceMiles)}</span>
+			{/if}
+			<span aria-hidden="true">·</span>
+			<span class="inline-flex items-center gap-1">
+				<Avatar user={activity.host} size="sm" />
+				<span>@{activity.host.handle}</span>
+			</span>
+			<span aria-hidden="true">·</span>
+			<time datetime={activity.createdAt}>{timeAgo(activity.createdAt)}</time>
+		</div>
+
+		<!-- Title + preview -->
+		<a {href} class="mt-1.5 block">
+			<h2 class="text-fluid-lg leading-snug font-extrabold text-ink hover:text-brand-ink">
+				{activity.title}
+			</h2>
+			{#if activity.body}
+				<p class="mt-1 line-clamp-2 text-fluid-sm text-ink-soft">{activity.body}</p>
+			{/if}
+		</a>
+
+		<!-- Facts row -->
+		<dl class="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-fluid-xs font-semibold text-ink-soft">
+			<div class="flex items-center gap-1">
+				<dt class="sr-only">When</dt>
+				<Icon name="clock" size={14} />
+				<dd>{formatWhen(activity.startsAt)}</dd>
+			</div>
+			<div class="flex min-w-0 items-center gap-1">
+				<dt class="sr-only">Where</dt>
+				<Icon name="pin" size={14} />
+				<dd class="truncate">{activity.location}</dd>
+			</div>
+			<div class="flex items-center gap-1">
+				<dt class="sr-only">Cost</dt>
+				{#if free}
+					<dd class="rounded-full bg-blush-200 px-2 py-0.5 font-bold text-blush-700">Free</dd>
+				{:else}
+					<Icon name="dollar" size={14} />
+					<dd class="text-brand-ink">{formatPrice(activity.costCents, activity.costBasis)}</dd>
+				{/if}
+			</div>
+		</dl>
+
+		<!-- Action row -->
+		<div class="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+			<SpotsMeter taken={activity.spotsTaken} total={activity.spots} />
+			<a
+				href="{href}#comments"
+				class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-fluid-xs font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+			>
+				<Icon name="comment" size={14} />
+				{activity.commentCount}
+				<span class="hidden sm:inline">{activity.commentCount === 1 ? 'comment' : 'comments'}</span>
+			</a>
+			<div class="ml-auto">
+				<JoinButton {activity} />
+			</div>
+		</div>
+	</div>
+</article>

@@ -1,1 +1,250 @@
 @import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Tagalong theme — reMarkable paper neutrals + clover green
+   ---------------------------------------------------------------------------
+   Two layers:
+     1. @theme  -> the raw palette + fluid type scale (static values)
+     2. :root   -> semantic tokens (surface/ink/brand) that swap for dark mode
+   Components should use the SEMANTIC names (bg-surface, text-ink, border-hedge,
+   text-brand-ink) so light/dark is handled in exactly one place: the two
+   blocks below.
+--------------------------------------------------------------------------- */
+
+@theme {
+	/* Clover — the accent. Fresh grass green, bright not muted. */
+	--color-clover-50: #f1f9ee;
+	--color-clover-100: #e0f2da;
+	--color-clover-200: #c2e5b8;
+	--color-clover-300: #97d38a;
+	--color-clover-400: #6abd5c;
+	--color-clover-500: #46a53c;
+	--color-clover-600: #35862f;
+	--color-clover-700: #2b6a27;
+	--color-clover-800: #235421;
+	--color-clover-900: #1b3f1a;
+	--color-clover-950: #0d240d;
+
+	/* Paper — reMarkable's warm neutrals: off-white page, putty bands. */
+	--color-paper-50: #ffffff;
+	--color-paper-100: #f7f5f0;
+	--color-paper-200: #f3f1ec;
+	--color-paper-300: #e8e4db;
+	--color-paper-400: #d9d4c9;
+	--color-paper-500: #b8b2a5;
+
+	/* Accents. */
+	--color-blush-200: #fbdce4; /* the cat's ears — Free pill */
+	--color-blush-700: #b23b5e;
+	--color-acorn-400: #a8886a;
+	--color-acorn-600: #7a6047;
+	--color-sky-300: #b7d3e3;
+	--color-sky-500: #7fa8c2;
+	--color-sky-700: #3f6d85;
+	--color-berry-500: #c9584a; /* warnings / full */
+
+	/* Fluid type. clamp(min, preferred, max) — scales with the viewport so the
+	   same components read correctly on a 390px phone and a 1440px desktop. */
+	--text-fluid-xs: clamp(0.7rem, 0.68rem + 0.1vw, 0.78rem);
+	--text-fluid-xs--line-height: 1.4;
+	--text-fluid-sm: clamp(0.8rem, 0.77rem + 0.15vw, 0.9rem);
+	--text-fluid-sm--line-height: 1.5;
+	--text-fluid-base: clamp(0.9rem, 0.86rem + 0.2vw, 1rem);
+	--text-fluid-base--line-height: 1.6;
+	--text-fluid-lg: clamp(1rem, 0.94rem + 0.3vw, 1.15rem);
+	--text-fluid-lg--line-height: 1.45;
+	--text-fluid-xl: clamp(1.15rem, 1.05rem + 0.5vw, 1.4rem);
+	--text-fluid-xl--line-height: 1.3;
+	--text-fluid-2xl: clamp(1.4rem, 1.2rem + 1vw, 2rem);
+	--text-fluid-2xl--line-height: 1.2;
+	--text-fluid-3xl: clamp(1.75rem, 1.4rem + 1.75vw, 2.75rem);
+	--text-fluid-3xl--line-height: 1.15;
+
+	/* Fluid gutters — the page breathes in from 16px on phones to 24px wide. */
+	--spacing-gutter: clamp(0.875rem, 0.6rem + 1.2vw, 1.5rem);
+
+	--font-sans: 'Nunito', ui-rounded, 'Segoe UI Rounded', system-ui, -apple-system, sans-serif;
+
+	--radius-card: 0.5rem;
+
+	--shadow-leaf: none;
+	--shadow-lift: 0 2px 10px rgb(26 26 26 / 0.06);
+}
+
+/* Semantic tokens — light. reMarkable paper: off-white page, putty bands,
+   near-black ink, white cards; clover green as the single accent. */
+:root {
+	--page: #f3f1ec;
+	--surface: #ffffff;
+	--surface-sunk: #f3f1ec;
+	--surface-hover: #e8e4db;
+	--hedge: #ddd8ce;
+	--hedge-strong: #b8b2a5;
+	--ink: #1a1a1a;
+	--ink-soft: #4a4944;
+	--ink-muted: #7d7b74;
+	--brand: #46a53c; /* buttons, dots — white text */
+	--brand-strong: #35862f; /* hover */
+	--brand-wash: #e0f2da; /* active tab / nav item */
+	--brand-ink: #2b6a27; /* brand as TEXT */
+	--on-brand: #ffffff;
+
+	color-scheme: light;
+}
+
+/* Semantic tokens — dark (warm charcoal, same clover accent) */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--page: #161614;
+		--surface: #1f1f1c;
+		--surface-sunk: #191917;
+		--surface-hover: #2a2a26;
+		--hedge: #33332e;
+		--hedge-strong: #4d4c45;
+		--ink: #f3f1ec;
+		--ink-soft: #c9c6bd;
+		--ink-muted: #8f8d85;
+		--brand: #5cb551;
+		--brand-strong: #6fc663;
+		--brand-wash: #22321f;
+		--brand-ink: #8ed483;
+		--on-brand: #0d240d;
+
+		color-scheme: dark;
+	}
+}
+
+/* Expose the semantic tokens as Tailwind utilities. `@theme inline` emits
+   `var(--surface)` rather than the resolved colour, so `bg-surface` follows the
+   dark-mode swap above automatically — no `dark:` prefixes needed anywhere. */
+@theme inline {
+	--color-page: var(--page);
+	--color-surface: var(--surface);
+	--color-surface-sunk: var(--surface-sunk);
+	--color-surface-hover: var(--surface-hover);
+	--color-hedge: var(--hedge);
+	--color-hedge-strong: var(--hedge-strong);
+	--color-ink: var(--ink);
+	--color-ink-soft: var(--ink-soft);
+	--color-ink-muted: var(--ink-muted);
+	--color-brand: var(--brand);
+	--color-brand-strong: var(--brand-strong);
+	--color-brand-wash: var(--brand-wash);
+	--color-brand-ink: var(--brand-ink);
+	--color-on-brand: var(--on-brand);
+}
+
+@layer base {
+	html {
+		-webkit-text-size-adjust: 100%;
+	}
+
+	body {
+		background-color: var(--page);
+		color: var(--ink);
+		font-family: var(--font-sans);
+		font-size: var(--text-fluid-base);
+		line-height: 1.6;
+		-webkit-font-smoothing: antialiased;
+		/* Room for the mobile tab bar; zeroed once the bar is hidden at md. */
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--brand);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+
+	/* Inputs inherit the rounded family instead of the browser default. */
+	input,
+	textarea,
+	select,
+	button {
+		font: inherit;
+		color: inherit;
+	}
+}
+
+@layer components {
+	/* The Reddit-style post/panel card, used by the feed, rails and forms. */
+	.leaf-card {
+		background-color: var(--surface);
+		border: 1px solid var(--hedge);
+		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-leaf);
+	}
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		border-radius: 0.375rem;
+		font-weight: 700;
+		font-size: var(--text-fluid-sm);
+		padding: 0.5rem 1.1rem;
+		border: 1px solid transparent;
+		cursor: pointer;
+		transition:
+			background-color 120ms ease,
+			border-color 120ms ease,
+			transform 120ms ease;
+	}
+	.btn:active:not(:disabled) {
+		transform: translateY(1px);
+	}
+	.btn:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+
+	.btn-primary {
+		background-color: var(--brand);
+		color: var(--on-brand);
+	}
+	.btn-primary:hover:not(:disabled) {
+		background-color: var(--brand-strong);
+	}
+
+	.btn-ghost {
+		background-color: transparent;
+		color: var(--ink);
+		border-color: var(--ink);
+	}
+	.btn-ghost:hover:not(:disabled) {
+		background-color: var(--surface-hover);
+		color: var(--ink);
+	}
+
+	.field {
+		width: 100%;
+		background-color: var(--surface-sunk);
+		border: 1px solid var(--hedge);
+		border-radius: 0.6rem;
+		padding: 0.6rem 0.8rem;
+		font-size: var(--text-fluid-sm);
+	}
+	.field:focus {
+		outline: none;
+		border-color: var(--brand);
+		box-shadow: 0 0 0 3px var(--brand-wash);
+	}
+
+	.label {
+		display: block;
+		font-weight: 700;
+		font-size: var(--text-fluid-sm);
+		color: var(--ink-soft);
+		margin-bottom: 0.35rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
