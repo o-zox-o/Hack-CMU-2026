@@ -85,12 +85,25 @@ export function validateActivity(
 	const location = str(source, 'location');
 	if (location.length < 2) errors.location = 'Where are you meeting? "Online" is fine.';
 
-	// `datetime-local` gives "2026-09-19T16:30" — no zone, so it is read as local
-	// time, which is what the user meant.
+	/* `datetime-local` gives "2026-09-19T16:30" with no zone, so parsing it here
+	   reads it in the SERVER's timezone, not the person's. On a UTC host that
+	   turns a Pittsburgh afternoon into that morning and rejects it as already
+	   past. Only the browser knows the right offset for that particular date,
+	   DST included, so it resolves the instant and sends it in `startsAtUtc`.
+	   The naive field stays the fallback for a submit without JavaScript, where
+	   the two zones agreeing is the best we can do. */
 	const startsAtRaw = str(source, 'startsAt');
+	const startsAtUtc = str(source, 'startsAtUtc');
 	let startsAt = '';
-	const parsedDate = startsAtRaw ? new Date(startsAtRaw) : null;
-	if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+
+	const usable = (value: string): Date | null => {
+		if (!value) return null;
+		const d = new Date(value);
+		return Number.isNaN(d.getTime()) ? null : d;
+	};
+	const parsedDate = usable(startsAtUtc) ?? usable(startsAtRaw);
+
+	if (!parsedDate) {
 		errors.startsAt = 'Pick a date and time.';
 	} else if (!rules.allowPastStart && parsedDate.getTime() < Date.now() - 60_000) {
 		errors.startsAt = 'That time has already passed.';

@@ -172,6 +172,14 @@
 		return costSplit(cents, costBasis === 'total' ? 'total' : 'per-person', headcount);
 	});
 
+	/* Resolved in the browser, which is the only place that knows the viewer's
+	   offset for that date. Empty while the field is mid-edit, which just means
+	   the server falls back to the naive value. */
+	let startsAtUtc = $derived.by(() => {
+		const d = new Date(startsAt);
+		return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+	});
+
 	/* Editing something that already started shouldn't fight you over its own
 	   date, so the floor only applies while the start time is still ahead. */
 	let minStart = $derived(
@@ -257,6 +265,10 @@
 				min={minStart}
 				required
 			/>
+			<!-- The same moment as an absolute instant. The server can't work this
+			     out: the field above carries no zone, so the server would read it
+			     in its own, which on a UTC host is hours off. -->
+			<input type="hidden" name="startsAtUtc" value={startsAtUtc} />
 			{#if errors.startsAt}<p class={err}>{errors.startsAt}</p>{/if}
 		</div>
 	</div>
