@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { feedQueryFromUrl } from '$lib/feed-query';
-import { createActivity, listActivities } from '$lib/server/db';
+import { createActivity } from '$lib/server/db';
+import { listActivitiesWithSemanticSearch } from '$lib/server/semanticSearch';
 import { validateNewActivity } from '$lib/validate';
 
 /** GET /api/activities?category=&campus=&q=&sort= — same filters as the feed. */
@@ -11,7 +12,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		location: locals.location,
 		interests: locals.interests
 	};
-	return json(await listActivities(feedQueryFromUrl(url), viewer));
+	return json(await listActivitiesWithSemanticSearch(feedQueryFromUrl(url), viewer));
 };
 
 /** POST /api/activities — JSON body with the same fields as the create form. */

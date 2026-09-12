@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { feedQueryFromUrl } from '$lib/feed-query';
-import { listActivities } from '$lib/server/db';
+import { listActivitiesWithSemanticSearch } from '$lib/server/semanticSearch';
 
 export const load = (async ({ url, locals }) => {
 	const query = feedQueryFromUrl(url);
@@ -11,6 +11,6 @@ export const load = (async ({ url, locals }) => {
 	};
 	return {
 		query,
-		activities: await listActivities(query, viewer)
+		activities: await listActivitiesWithSemanticSearch(query, viewer)
 	};
 }) satisfies PageServerLoad;

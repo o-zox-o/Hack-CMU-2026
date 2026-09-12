@@ -28,6 +28,26 @@ import {
 	type LatLng
 } from './types';
 
+/**
+ * Cosine similarity of two equal-length embedding vectors, -1..1 (in
+ * practice 0..1 for these embeddings). 0 if either is missing or they don't
+ * match in length.
+ */
+export function cosineSimilarity(a: number[], b: number[]): number {
+	if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
+
+	let dot = 0;
+	let magA = 0;
+	let magB = 0;
+	for (let i = 0; i < a.length; i++) {
+		dot += a[i] * b[i];
+		magA += a[i] * a[i];
+		magB += b[i] * b[i];
+	}
+
+	return magA === 0 || magB === 0 ? 0 : dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
+
 /** Overlap of two tag sets, 0–1. Order and case don't matter. */
 export function jaccardSimilarity(a: string[], b: string[]): number {
 	if (!a.length || !b.length) return 0;

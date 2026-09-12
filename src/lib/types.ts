@@ -469,6 +469,8 @@ export interface NewActivityInput {
 	costBasis: CostBasis;
 	visibility: Visibility;
 	approvalRequired: boolean;
+	/** AI-generated tags from the title/description. Optional — falls back to the category's. */
+	interests?: string[];
 }
 
 /**

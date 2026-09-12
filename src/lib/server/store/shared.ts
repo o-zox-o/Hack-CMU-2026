@@ -99,9 +99,11 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 		approvalRequired: input.approvalRequired,
 		costCents: input.costCents,
 		costBasis: input.costBasis,
-		// Untagged activities inherit their category's tags so they can still
-		// be matched against someone's interests.
-		interests: CATEGORY_INTERESTS[input.category] ?? [],
+		// AI-generated tags plus the category's own — so an untagged activity
+		// still matches on category, and a tagged one matches on both.
+		interests: [
+			...new Set([...(input.interests ?? []), ...(CATEGORY_INTERESTS[input.category] ?? [])])
+		],
 		createdAt: new Date().toISOString()
 	};
 }

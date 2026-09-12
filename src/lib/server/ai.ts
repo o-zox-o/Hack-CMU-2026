@@ -10,7 +10,8 @@ const tagSchema = {
 		tags: {
 			type: Type.ARRAY,
 			items: { type: Type.STRING },
-			description: '3 to 6 lowercase, normalized keyword tags representing hobbies, interests, or activity topics.'
+			description:
+				'3 to 6 lowercase, normalized keyword tags representing hobbies, interests, or activity topics.'
 		}
 	},
 	required: ['tags']
@@ -25,7 +26,7 @@ export async function generateTags(description: string): Promise<string[]> {
 	try {
 		const response = await ai.models.generateContent({
 			model: 'gemini-2.5-flash',
-            //prompt - basic
+			//prompt - basic
 			contents: `Analyze the following description and extract 3 to 6 normalized keyword tags.
 Focus on activities, categories, hobbies, and relevant topics. Try to use the most common term for something as possible, for consistency, but accuracy
 Format guidelines:
@@ -51,4 +52,48 @@ Description:
 		console.error('Gemini tag generation error:', error);
 		return []; // Fails safely so form submissions still work
 	}
+}
+
+/* -------------------------------------------------------------------------- */
+/* Embeddings — for semantic feed search                                      */
+/* -------------------------------------------------------------------------- */
+
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+/** Gemini's default is much larger; this is plenty for cosine similarity over a small feed. */
+const EMBEDDING_DIMENSIONS = 768;
+
+export type EmbeddingTaskType = 'RETRIEVAL_QUERY' | 'RETRIEVAL_DOCUMENT';
+
+/**
+ * Text -> vectors, same order as input, batched into one request. An entry
+ * is null if it couldn't be embedded (e.g. empty string); the whole array is
+ * empty if the request itself failed (no API key, network error, etc.) so
+ * callers can fall back to non-AI behavior instead of erroring.
+ */
+export async function embedTexts(
+	texts: string[],
+	taskType: EmbeddingTaskType
+): Promise<(number[] | null)[]> {
+	if (texts.length === 0) return [];
+
+	try {
+		const response = await ai.models.embedContent({
+			model: EMBEDDING_MODEL,
+			contents: texts,
+			config: { taskType, outputDimensionality: EMBEDDING_DIMENSIONS }
+		});
+		return texts.map((_, i) => response.embeddings?.[i]?.values ?? null);
+	} catch (error) {
+		console.error('Gemini embedding error:', error);
+		return texts.map(() => null);
+	}
+}
+
+/** Convenience wrapper for a single text. */
+export async function embedText(
+	text: string,
+	taskType: EmbeddingTaskType
+): Promise<number[] | null> {
+	const [vector] = await embedTexts([text], taskType);
+	return vector ?? null;
 }
