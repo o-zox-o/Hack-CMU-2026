@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatPrice, formatWhen, timeAgo } from '$lib/format';
+	import { formatMiles, formatPrice, formatWhen, timeAgo } from '$lib/format';
 	import { campusMeta, categoryMeta, type ActivityView } from '$lib/types';
 	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
@@ -38,6 +38,10 @@
 			</a>
 			<span aria-hidden="true">·</span>
 			<span class="font-bold">{campus.short}</span>
+			{#if activity.distanceMiles !== null}
+				<span aria-hidden="true">·</span>
+				<span>{formatMiles(activity.distanceMiles)}</span>
+			{/if}
 			<span aria-hidden="true">·</span>
 			<span class="inline-flex items-center gap-1">
 				<Avatar user={activity.host} size="sm" />

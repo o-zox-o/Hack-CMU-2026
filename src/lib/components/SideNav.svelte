@@ -1,23 +1,27 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { CAMPUSES, CATEGORIES, campusMeta, type User } from '$lib/types';
+	import { formatMiles } from '$lib/format';
+	import { CATEGORIES, type CampusId, type User } from '$lib/types';
 	import Icon from './Icon.svelte';
 
 	interface Props {
 		user: User;
+		/** Campuses nearest-first, each with `miles` from the viewer. */
+		campuses: { id: CampusId; short: string; label: string; miles: number }[];
 	}
 
-	let { user }: Props = $props();
+	let { user, campuses }: Props = $props();
 
 	let path = $derived(page.url.pathname);
 	let params = $derived(page.url.searchParams);
 	let activeCategory = $derived(params.get('category'));
 	let activeCampus = $derived(params.get('campus'));
+	let activeWithin = $derived(params.get('within'));
 	let isFree = $derived(params.get('free') === '1');
 
-	/* Home = the plain feed for your own campus, nothing else set. */
+	/* Home = the plain "near you" feed, nothing else set. */
 	let isHome = $derived(
-		path === '/' && !activeCategory && !activeCampus && !isFree && !params.get('q')
+		path === '/' && !activeCategory && !activeCampus && !activeWithin && !isFree && !params.get('q')
 	);
 
 	const link =
@@ -34,8 +38,7 @@
 				class="{link} {isHome ? active : idle}"
 				aria-current={isHome ? 'page' : undefined}
 			>
-				<Icon name="home" size={18} /> Home
-				<span class="ml-auto text-fluid-xs text-ink-muted">{campusMeta(user.campus).short}</span>
+				<Icon name="pin" size={18} /> Near you
 			</a>
 		</li>
 		<li>
@@ -81,34 +84,38 @@
 
 	<section>
 		<h2 class="mb-1.5 px-3 text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
-			Campuses
+			Campuses <span class="font-semibold tracking-normal normal-case">· nearest first</span>
 		</h2>
 		<ul class="flex flex-col gap-0.5">
-			<li>
-				<a
-					href="/?campus=all"
-					class="{link} {activeCampus === 'all' ? active : idle}"
-					aria-current={activeCampus === 'all' ? 'page' : undefined}
-				>
-					<Icon name="compass" size={18} /> All campuses
-				</a>
-			</li>
-			{#each CAMPUSES as campus (campus.id)}
+			{#each campuses as campus (campus.id)}
 				{@const isActive = activeCampus === campus.id}
 				<li>
 					<a
 						href="/?campus={campus.id}"
 						class="{link} {isActive ? active : idle}"
 						aria-current={isActive ? 'page' : undefined}
+						title={campus.label}
 					>
-						<span class="ml-1 h-2 w-2 rounded-full bg-hedge-strong" aria-hidden="true"></span>
+						<span
+							class="ml-1 h-2 w-2 rounded-full {campus.id === user.campus
+								? 'bg-brand'
+								: 'bg-hedge-strong'}"
+							aria-hidden="true"
+						></span>
 						{campus.short}
-						{#if campus.id === user.campus}
-							<span class="ml-auto text-fluid-xs text-ink-muted">yours</span>
-						{/if}
+						<span class="ml-auto text-fluid-xs text-ink-muted">{formatMiles(campus.miles)}</span>
 					</a>
 				</li>
 			{/each}
+			<li>
+				<a
+					href="/?within=all"
+					class="{link} {activeWithin === 'all' ? active : idle}"
+					aria-current={activeWithin === 'all' ? 'page' : undefined}
+				>
+					<Icon name="compass" size={18} /> Anywhere
+				</a>
+			</li>
 		</ul>
 	</section>
 </nav>

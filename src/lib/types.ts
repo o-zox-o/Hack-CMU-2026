@@ -71,13 +71,85 @@ export function isCategoryId(value: unknown): value is CategoryId {
 /* Campuses                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Campuses with coordinates — the feed is "activities at campuses near you". */
 export const CAMPUSES = [
-	{ id: 'cmu', label: 'Carnegie Mellon', short: 'CMU' },
-	{ id: 'pitt', label: 'University of Pittsburgh', short: 'Pitt' },
-	{ id: 'chatham', label: 'Chatham University', short: 'Chatham' },
-	{ id: 'duquesne', label: 'Duquesne University', short: 'Duquesne' },
-	{ id: 'carlow', label: 'Carlow University', short: 'Carlow' }
+	{
+		id: 'cmu',
+		label: 'Carnegie Mellon',
+		short: 'CMU',
+		city: 'Pittsburgh',
+		lat: 40.4433,
+		lng: -79.9436
+	},
+	{
+		id: 'pitt',
+		label: 'University of Pittsburgh',
+		short: 'Pitt',
+		city: 'Pittsburgh',
+		lat: 40.4444,
+		lng: -79.9608
+	},
+	{
+		id: 'chatham',
+		label: 'Chatham University',
+		short: 'Chatham',
+		city: 'Pittsburgh',
+		lat: 40.4497,
+		lng: -79.9235
+	},
+	{
+		id: 'duquesne',
+		label: 'Duquesne University',
+		short: 'Duquesne',
+		city: 'Pittsburgh',
+		lat: 40.4364,
+		lng: -79.9917
+	},
+	{
+		id: 'carlow',
+		label: 'Carlow University',
+		short: 'Carlow',
+		city: 'Pittsburgh',
+		lat: 40.4394,
+		lng: -79.9631
+	},
+	{
+		id: 'wvu',
+		label: 'West Virginia University',
+		short: 'WVU',
+		city: 'Morgantown',
+		lat: 39.6354,
+		lng: -79.9553
+	},
+	{
+		id: 'psu',
+		label: 'Penn State',
+		short: 'PSU',
+		city: 'State College',
+		lat: 40.7982,
+		lng: -77.8599
+	}
 ] as const;
+
+export interface LatLng {
+	lat: number;
+	lng: number;
+}
+
+/** Feed radius choices. `miles: null` means no limit. */
+export const RADII = [
+	{ id: '10', miles: 10, label: '10 mi' },
+	{ id: '50', miles: 50, label: '50 mi' },
+	{ id: '150', miles: 150, label: '150 mi' },
+	{ id: 'all', miles: null, label: 'Anywhere' }
+] as const;
+
+export type RadiusId = (typeof RADII)[number]['id'];
+export const DEFAULT_RADIUS: RadiusId = '10';
+
+export function isRadiusId(value: unknown): value is RadiusId {
+	return typeof value === 'string' && RADII.some((r) => r.id === value);
+}
 
 export type CampusId = (typeof CAMPUSES)[number]['id'];
 
@@ -93,6 +165,7 @@ export function isCampusId(value: unknown): value is CampusId {
 /* Users                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** Public shape — safe to put in a page payload or show to other users. */
 export interface User {
 	id: string;
 	name: string;
@@ -102,6 +175,23 @@ export interface User {
 	/** Index into the avatar palette — keeps seeded users visually distinct. */
 	avatarSeed: number;
 	joinedAt: string;
+}
+
+/**
+ * Stored shape — the `users` collection. Server-only. `toUser()` in db.ts
+ * strips the credentials before anything reaches a page.
+ */
+export interface UserDoc extends User {
+	email: string;
+	/** From hashPassword() in $lib/server/auth.ts. Never the raw password. */
+	passwordHash: string;
+}
+
+export interface SignupInput {
+	name: string;
+	email: string;
+	campus: CampusId;
+	password: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -150,6 +240,8 @@ export interface ActivityView {
 	members: User[];
 	commentCount: number;
 	/* Derived — computed once on the server so the UI never recalculates. */
+	/** Miles from the viewer to this activity's campus; null if no location. */
+	distanceMiles: number | null;
 	spotsTaken: number;
 	spotsLeft: number;
 	isFull: boolean;
@@ -180,6 +272,7 @@ export interface CommentView {
 
 export const SORTS = [
 	{ id: 'soonest', label: 'Soonest' },
+	{ id: 'nearest', label: 'Nearest' },
 	{ id: 'cheapest', label: 'Cheapest' },
 	{ id: 'new', label: 'New' }
 ] as const;
@@ -192,8 +285,10 @@ export function isSortId(value: unknown): value is SortId {
 
 export interface FeedQuery {
 	category?: CategoryId;
-	/** Undefined means every campus. The feed defaults to the viewer's own. */
+	/** An explicit single campus. Overrides `within`. */
 	campus?: CampusId;
+	/** Radius around the viewer's location. Defaults to DEFAULT_RADIUS. */
+	within?: RadiusId;
 	/** Only activities that cost nothing — free food, giveaways. */
 	free?: boolean;
 	q?: string;

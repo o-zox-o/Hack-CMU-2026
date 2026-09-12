@@ -1,12 +1,45 @@
 /**
- * In-memory data store — the ONLY module that knows how activities are stored.
+ * The data layer entry point. Picks a backend once:
  *
- * Swapping to MongoDB means rewriting the function bodies below and nothing
- * else: routes and components only ever see `ActivityView` / `CommentView`.
- * See $lib/server/mongodb.ts for the connection helper and the notes on what
- * each of these becomes as a real query.
+ *   MONGODB_URI set   -> MongoDB  (store/mongo.ts)   — production / Vercel
+ *   MONGODB_URI unset -> in-memory (store/memory.ts) — local dev, zero setup
+ *
+ * Routes import the functions below and `await` them; they never know which
+ * backend is behind them. See store/types.ts for the contract.
  */
 
+import { env } from '$env/dynamic/private';
+import { createMemoryStore } from './store/memory';
+import { createMongoStore } from './store/mongo';
+import type { Store } from './store/types';
+
+export { DEMO_PASSWORD } from './seed';
+export type { JoinResult, LeaveResult, SignupResult, Viewer } from './store/types';
+
+const uri = env.MONGODB_URI;
+
+export const store: Store = uri
+	? createMongoStore(uri, env.MONGODB_DB || 'tagalong')
+	: createMemoryStore();
+
+console.log(
+	`[db] backend: ${uri ? `MongoDB (${env.MONGODB_DB || 'tagalong'})` : 'in-memory (set MONGODB_URI to persist)'}`
+);
+
+export const {
+	getUser,
+	verifyLogin,
+	createUser,
+	listActivities,
+	getActivity,
+	listComments,
+	activitiesHostedBy,
+	activitiesJoinedBy,
+	createActivity,
+	joinActivity,
+	leaveActivity,
+	addComment
+} = store;
 import {
 	type Activity,
 	type ActivityView,

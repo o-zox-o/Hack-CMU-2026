@@ -1,5 +1,5 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
-import type { User } from '$lib/types';
+import type { LatLng, User } from '$lib/types';
 
 declare global {
 	namespace App {
@@ -10,6 +10,9 @@ declare global {
 			 * and everything downstream keeps working.
 			 */
 			user: User;
+			/** Where the viewer is: the browser's fix if we have it, else their campus. */
+			location: LatLng;
+			locationSource: 'gps' | 'campus';
 		}
 		// interface Error {}
 		// interface PageData {}

@@ -36,16 +36,23 @@
 			{#if user.bio}
 				<p class="mt-3 text-fluid-sm text-ink-soft">{user.bio}</p>
 			{/if}
-			<dl class="mt-3 flex gap-6 text-fluid-xs">
-				<div>
-					<dd class="text-fluid-lg font-extrabold text-ink">{data.hosting.length}</dd>
-					<dt class="text-ink-muted">hosting</dt>
-				</div>
-				<div>
-					<dd class="text-fluid-lg font-extrabold text-ink">{data.joined.length}</dd>
-					<dt class="text-ink-muted">joined</dt>
-				</div>
-			</dl>
+			<div class="mt-3 flex flex-wrap items-end justify-between gap-3">
+				<dl class="flex gap-6 text-fluid-xs">
+					<div>
+						<dd class="text-fluid-lg font-extrabold text-ink">{data.hosting.length}</dd>
+						<dt class="text-ink-muted">hosting</dt>
+					</div>
+					<div>
+						<dd class="text-fluid-lg font-extrabold text-ink">{data.joined.length}</dd>
+						<dt class="text-ink-muted">joined</dt>
+					</div>
+				</dl>
+				<form method="POST" action="?/logout" use:enhance>
+					<button type="submit" class="btn btn-ghost">
+						<Icon name="exit" size={14} /> Log out
+					</button>
+				</form>
+			</div>
 		</div>
 	</section>
 
@@ -90,23 +97,5 @@
 				{/each}
 			</ul>
 		{/if}
-	</section>
-
-	<!-- DEV ONLY: identity switcher. Delete this block when real auth lands. -->
-	<section class="rounded-card border border-dashed border-sky-500/50 bg-sky-300/20 p-4">
-		<h2 class="text-fluid-xs font-extrabold tracking-wider text-ink uppercase">
-			Dev · switch demo user
-		</h2>
-		<p class="mt-1 text-fluid-xs text-ink-soft">
-			Auth is stubbed. Pick another seeded user to test joining someone else's activity.
-		</p>
-		<form method="POST" action="?/switchUser" class="mt-2 flex flex-wrap gap-2" use:enhance>
-			<select name="id" class="field max-w-xs" value={user.id}>
-				{#each data.demoUsers as demo (demo.id)}
-					<option value={demo.id}>{demo.name}</option>
-				{/each}
-			</select>
-			<button type="submit" class="btn btn-ghost">Switch</button>
-		</form>
 	</section>
 </div>

@@ -13,31 +13,45 @@ npm run check      # svelte-check (types + template errors)
 npm run lint       # prettier + eslint
 ```
 
-No database needed yet — it boots on an in-memory store with seeded users and activities. Data survives hot reloads but resets when the dev server restarts.
+With no `MONGODB_URI` set it runs on an in-memory store with seeded users and activities — fine for local hacking, but everything resets when the process restarts. Log in as `mei@andrew.cmu.edu` / `tagalong` (every seeded account uses that password), or sign up.
+
+To run against MongoDB locally, copy `.env.example` to `.env` and fill in `MONGODB_URI`. An empty database is seeded with the same demo data on first connect. Data survives hot reloads but resets when the dev server restarts.
 
 ## Where things live
 
 ```
 src/
 ├── routes/
-│   ├── +layout.svelte            app shell: header · side nav · feed · right rail · mobile tab bar
-│   ├── +page.svelte              the feed — your campus by default (?campus=all &category= &free=1 &q= &sort=)
+│   ├── (app)/+layout.svelte      app shell: header · side nav · feed · right rail · mobile tab bar
+│   ├── +page.svelte              the feed — campuses within 10 mi of you (?within=50|150|all &campus= &category= &free=1 &q= &sort=)
 │   ├── activities/new/           create form  (+page.server.ts = form action)
 │   ├── activities/[id]/          detail, join/leave, comments
-│   ├── profile/                  your hosted + joined activities (+ dev user switcher)
+│   ├── profile/                  your hosted + joined activities, log out
+│   ├── login/                    log in / sign up (outside the app shell)
 │   ├── api/activities/           GET list / POST create (JSON)
 │   └── layout.css                the theme — palette, fluid type, dark mode, .leaf-card/.btn/.field
 ├── lib/
 │   ├── types.ts                  Activity / User / categories / campuses — single source of truth
 │   ├── format.ts                 money (integer cents), dates, "2h ago"
 │   ├── validate.ts               new-activity validation shared by the form and the API
+│   ├── geo.ts                    haversine, campuses-by-distance, the `loc` cookie
 │   ├── feed-query.ts             URL params -> FeedQuery
 │   ├── components/               ActivityCard, JoinButton, AppHeader, SideNav, …
 │   └── server/
-│       ├── db.ts                 THE data layer. In-memory now; swap bodies for Mongo later.
-│       └── mongodb.ts            connection helper, commented out until you `npm i mongodb`
-└── hooks.server.ts               auth stub — sets locals.user on every request
+│       ├── auth.ts               password hashing + signed session cookie
+│       ├── db.ts                 picks a backend from MONGODB_URI; routes import from here
+│       ├── seed.ts               demo users/activities (loaded by both backends)
+│       └── store/
+│           ├── types.ts          the Store interface every backend implements
+│           ├── shared.ts         doc -> view builders, feed sort, new-doc factories
+│           ├── memory.ts         in-memory backend (local dev)
+│           └── mongo.ts          MongoDB backend (production)
+└── hooks.server.ts               session cookie -> locals.user; redirects to /login when signed out
 ```
+
+## Location
+
+The feed is "activities at campuses near you". `CAMPUSES` in `types.ts` carry coordinates; `LocationSync.svelte` asks the browser for a position once and stores `lat,lng` in a `loc` cookie; `hooks.server.ts` turns that into `locals.location` (falling back to your campus). `listActivities` filters to campuses within the chosen radius and every `ActivityView` gets `distanceMiles`.
 
 ## Rules of the codebase
 
@@ -47,10 +61,22 @@ src/
 - **Use semantic colour classes** (`bg-surface`, `text-ink`, `border-hedge`, `bg-brand`), not raw palette ones. Dark mode is handled once in `layout.css`; nothing else needs `dark:`.
 - **Svelte 5 props:** `interface Props {…}` then `let { x }: Props = $props()`.
 
-## Swapping in the real backend
+## Deploying (Vercel)
 
-1. **Auth** — replace the body of `hooks.server.ts` with a session lookup. Everything reads `locals.user`.
-2. **Mongo** — `npm i mongodb`, fill `.env` from `.env.example`, uncomment `mongodb.ts`, rewrite the function bodies in `db.ts`. Keep the exports and return types.
-3. Delete the "Dev · switch demo user" block from `profile/+page.svelte`.
+The in-memory store **does not work on Vercel**: each request can land on a fresh serverless instance with empty memory, so sign-ups vanish and sessions stop resolving. Production needs MongoDB.
 
-While auth is stubbed, switch identity from the profile page (or `document.cookie = 'demo_user=u_theo; path=/'`) to test joining someone else's post.
+1. **Atlas**: create a free cluster → Database Access: add a user → Network Access: allow `0.0.0.0/0` (Vercel's IPs change) → Connect → Drivers → copy the URI.
+2. **Vercel → Project → Settings → Environment Variables**, for Production _and_ Preview:
+   - `MONGODB_URI` — the Atlas URI with your password filled in
+   - `MONGODB_DB` — `tagalong`
+   - `SESSION_SECRET` — `openssl rand -hex 32`
+3. Redeploy (env changes don't apply to existing deployments). The first request seeds the demo data if the database is empty, and the function log prints `[db] backend: MongoDB (tagalong)`.
+
+`hooks.server.ts` sets the session cookie with `secure: true` outside dev, which Vercel's HTTPS satisfies.
+
+## Backend notes
+
+- Documents use our string ids as `_id` (`u_mei`, `a_costco`), so no ObjectId conversion anywhere.
+- `joinActivity` is one `findOneAndUpdate` with the capacity check in the filter — keep it that way; read-then-write lets two people take the last spot.
+- Unique indexes on `users.email` and `users.handle`; `createUser` relies on the duplicate-key error rather than find-then-insert.
+- To add a backend (Postgres, whatever): implement `Store` from `store/types.ts`, reuse `store/shared.ts`, pick it in `db.ts`.

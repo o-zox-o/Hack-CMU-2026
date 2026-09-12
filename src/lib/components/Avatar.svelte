@@ -21,9 +21,7 @@
 		{ bg: '#a8886a', fg: '#ffffff' } // acorn
 	];
 
-	let swatch = $derived(
-		PALETTE[(user.avatarSeed ?? 0) % PALETTE.length] ?? PALETTE[0]
-	);
+	let swatch = $derived(PALETTE[(user.avatarSeed ?? 0) % PALETTE.length] ?? PALETTE[0]);
 
 	const SIZES = {
 		sm: 'h-6 w-6 text-[0.6rem]',

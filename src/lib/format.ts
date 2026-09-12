@@ -92,3 +92,11 @@ export function toLocalInputValue(date: Date): string {
 	const pad = (n: number) => String(n).padStart(2, '0');
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+/** "0.4 mi", "12 mi", "1.2k mi". */
+export function formatMiles(miles: number): string {
+	if (miles < 0.05) return '< 0.1 mi';
+	if (miles < 10) return `${miles.toFixed(1)} mi`;
+	if (miles < 1000) return `${Math.round(miles)} mi`;
+	return `${(miles / 1000).toFixed(1)}k mi`;
+}
