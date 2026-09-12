@@ -10,8 +10,10 @@ import { interleaveWildcards, matchPercent, rankByRelevance, seededShuffle } fro
 import {
 	BAD_SCORE,
 	CATEGORY_INTERESTS,
+	isStudent,
 	MIN_RATINGS_TO_SHOW,
 	WARNING_THRESHOLD,
+	type CommentVisibility,
 	type HostStanding,
 	type RatingSummary
 } from '$lib/types';
@@ -72,6 +74,7 @@ export function newUserDoc(input: SignupInput, handle: string, avatarSeed: numbe
 		email: input.email.toLowerCase(),
 		passwordHash: hashPassword(input.password),
 		campus: input.campus,
+		accountType: input.accountType,
 		interests: input.interests,
 		isPrivate: false,
 		bio: '',
@@ -106,12 +109,18 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 	};
 }
 
-export function newCommentDoc(activityId: string, authorId: string, body: string): Comment {
+export function newCommentDoc(
+	activityId: string,
+	authorId: string,
+	body: string,
+	visibility: CommentVisibility = 'everyone'
+): Comment {
 	return {
 		id: `c_${crypto.randomUUID().slice(0, 8)}`,
 		activityId,
 		authorId,
 		body,
+		visibility,
 		createdAt: new Date().toISOString()
 	};
 }
@@ -154,6 +163,9 @@ export function toView(
 		// Both default for activities posted before hosts could choose.
 		visibility: activity.visibility ?? 'public',
 		approvalRequired: activity.approvalRequired ?? false,
+		completedAt: activity.completedAt ?? null,
+		isComplete: Boolean(activity.completedAt),
+		awaitingCompletion: !activity.completedAt && new Date(activity.startsAt).getTime() < Date.now(),
 		host: user(activity.hostId),
 		members: activity.memberIds.map(user),
 		waitlist: (activity.waitlistIds ?? []).map(user),
@@ -176,49 +188,83 @@ export function toView(
 }
 
 /**
- * Can `viewer` read this comment? A private author's comments are for the
- * people in the activity — plus the author, who can always see their own.
+ * Who a comment is really for. The comment's own setting wins; a comment
+ * written before that was a choice falls back to the author's profile-wide
+ * flag, which is what it meant at the time.
+ */
+export function commentVisibility(comment: Comment, author: User | undefined): CommentVisibility {
+	return comment.visibility ?? (author?.isPrivate ? 'members' : 'everyone');
+}
+
+/**
+ * Can `viewer` read this comment? A members-only comment is for the people in
+ * the activity — plus its author, who can always see their own.
  */
 export function canSeeComment(
+	comment: Comment,
 	author: User | undefined,
 	viewerId: string | undefined,
 	viewerIsMember: boolean
 ): boolean {
-	if (!author?.isPrivate) return true;
-	if (viewerId && author.id === viewerId) return true;
+	if (commentVisibility(comment, author) === 'everyone') return true;
+	if (viewerId && comment.authorId === viewerId) return true;
 	return viewerIsMember;
 }
 
 export function toCommentView(comment: Comment, users: Map<string, User>): CommentView {
+	const author = users.get(comment.authorId);
 	return {
 		id: comment.id,
 		body: comment.body,
 		createdAt: comment.createdAt,
-		author: users.get(comment.authorId) ?? fallbackUser(comment.authorId)
+		visibility: commentVisibility(comment, author),
+		author: author ?? fallbackUser(comment.authorId)
 	};
 }
 
 /* ---- host controls ---------------------------------------------------------- */
 
-/**
- * Does this activity belong in the browse feed for this viewer?
- *
- * A private activity is unlisted, not sealed: it stays out of the feed and
- * search, but anyone the host sends the link to can open it. People already
- * involved — host, members, anyone waiting — keep seeing it in their feed so
- * it doesn't vanish on them.
- *
- * Mongo can't call this, so it builds the same rule as a query filter in
- * `listActivities`. Change one and change the other.
- */
-export function isListed(activity: Activity, viewerId?: string): boolean {
-	if ((activity.visibility ?? 'public') !== 'private') return true;
+/** Host, member, or waiting on the host. Anyone already involved sees it. */
+export function isInvolved(activity: Activity, viewerId?: string): boolean {
 	if (!viewerId) return false;
 	return (
 		activity.hostId === viewerId ||
 		activity.memberIds.includes(viewerId) ||
 		(activity.waitlistIds ?? []).includes(viewerId)
 	);
+}
+
+/**
+ * May this viewer open the activity at all?
+ *
+ * The student-only tiers are a real wall, not just a feed filter: a general
+ * account handed the link to a campus activity still can't read it. Private
+ * is the opposite kind of restriction, unlisted rather than sealed, so the
+ * link works for whoever the host sends it to.
+ *
+ * Anyone already involved always gets through, whatever the setting became
+ * after they joined.
+ */
+export function canOpenActivity(activity: Activity, viewer?: Viewer): boolean {
+	if (isInvolved(activity, viewer?.id)) return true;
+
+	const visibility = activity.visibility ?? 'public';
+	if (visibility === 'public' || visibility === 'private') return true;
+	if (!isStudent(viewer)) return false;
+	return visibility === 'students' || viewer?.campus === activity.campus;
+}
+
+/**
+ * Does this activity belong in the browse feed for this viewer? Everything
+ * they may open, minus the private ones, which are found by link alone.
+ *
+ * Mongo can't call this, so it builds the same rule as a query filter in
+ * `listActivities`. Change one and change the other.
+ */
+export function isListed(activity: Activity, viewer?: Viewer): boolean {
+	if (isInvolved(activity, viewer?.id)) return true;
+	if ((activity.visibility ?? 'public') === 'private') return false;
+	return canOpenActivity(activity, viewer);
 }
 
 /** Is a join a request the host has to answer, rather than just walking in? */

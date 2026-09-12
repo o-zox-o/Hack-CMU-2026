@@ -9,13 +9,10 @@ import {
 	updateProfile
 } from '$lib/server/db';
 import { isInterest } from '$lib/types';
+import { viewerFrom } from '$lib/server/viewer';
 
 export const load = (async ({ locals }) => {
-	const viewer = {
-		id: locals.user.id,
-		location: locals.location,
-		interests: locals.interests
-	};
+	const viewer = viewerFrom(locals);
 	const [hosting, joined, leaderboard, standing] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
 		activitiesJoinedBy(locals.user.id, viewer),

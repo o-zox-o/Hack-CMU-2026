@@ -102,14 +102,14 @@ export async function notifyHostOfJoin(
 
 	const link = `${origin}/activities/${activity.id}`;
 	const spots = activity.isFull
-		? "That's everyone — you're full."
+		? "That's everyone, you're full."
 		: `${activity.spotsLeft} spot${activity.spotsLeft === 1 ? '' : 's'} left.`;
 
 	const rows: [string, string][] = [
 		['When', formatWhen(activity.startsAt)],
 		['Where', activity.location],
 		['Cost', formatPrice(activity.costCents, activity.costBasis)],
-		['Spots', `${activity.spotsTaken} of ${activity.spots} — ${spots}`]
+		['Spots', `${activity.spotsTaken} of ${activity.spots}, ${spots}`]
 	];
 
 	const text = [
@@ -168,7 +168,7 @@ export async function confirmJoin(
 	].join('\n');
 
 	const html = shell(
-		`You're in — ${escape(activity.title)}`,
+		`You're in: ${escape(activity.title)}`,
 		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(activity.host.name)} is expecting you. Here are the details:</p>` +
 			detailTable(rows) +
 			`<p style="margin:16px 0 0;font-size:13px;color:#857f70">Can't make it any more? Leave from the activity page so someone else can take the spot.</p>` +
@@ -190,7 +190,28 @@ export async function sendJoinEmails(
 	]);
 }
 
-/** Someone asked to join a full activity — the host decides. */
+/**
+ * The one-time code that proves a signup's address is real. Plain and short:
+ * this one gets read on a phone lock screen, so the code goes first.
+ */
+export async function sendVerificationCode(email: string, code: string): Promise<MailResult> {
+	const text = [
+		`Your Tagalong verification code is ${code}.`,
+		'',
+		'It expires in 15 minutes. If you did not try to sign up, ignore this.'
+	].join('\n');
+
+	const html = shell(
+		'Confirm your email',
+		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5">Enter this code to finish signing up:</p>` +
+			`<p style="margin:0;font-size:32px;font-weight:800;letter-spacing:6px;font-family:ui-monospace,monospace">${escape(code)}</p>` +
+			`<p style="margin:16px 0 0;font-size:13px;color:#857f70">It expires in 15 minutes. If you didn't try to sign up, ignore this.</p>`
+	);
+
+	return send({ to: email, subject: `${code} is your Tagalong code`, html, text });
+}
+
+/** Someone wants in and the host has to say yes — because it's full, or by choice. */
 export async function notifyHostOfWaitlistRequest(
 	activity: ActivityView,
 	requester: User,
@@ -203,28 +224,39 @@ export async function notifyHostOfWaitlistRequest(
 
 	const link = `${origin}/activities/${activity.id}`;
 	const waiting = activity.waitlist.length;
+
+	// Two different situations, and the host should be able to tell which from
+	// the subject line alone: a queue for a full activity, or a door they chose
+	// to keep locked.
+	const why = activity.isFull ? ', which is full' : '';
+	const approving = activity.isFull
+		? 'Approving takes a free spot if one opened up, or adds one.'
+		: `There ${activity.spotsLeft === 1 ? 'is' : 'are'} ${activity.spotsLeft} free ${
+				activity.spotsLeft === 1 ? 'spot' : 'spots'
+			}, so approving takes one of them.`;
+
 	const rows: [string, string][] = [
 		['Activity', activity.title],
 		['When', formatWhen(activity.startsAt)],
-		['Currently', `${activity.spotsTaken} of ${activity.spots} — full`],
+		['Currently', `${activity.spotsTaken} of ${activity.spots}${activity.isFull ? ', full' : ''}`],
 		['Waiting', `${waiting} ${waiting === 1 ? 'person' : 'people'}`]
 	];
 
 	const text = [
-		`${requester.name} (@${requester.handle}) asked to join "${activity.title}", which is full.`,
+		`${requester.name} (@${requester.handle}) asked to join "${activity.title}"${why}.`,
 		'',
 		...rows.map(([k, v]) => `${k}: ${v}`),
 		'',
-		'Approve them from the activity page — it takes a free spot if one opened up, or adds one.',
+		`Approve them from the activity page. ${approving}`,
 		'',
 		link
 	].join('\n');
 
 	const html = shell(
 		`${escape(requester.name)} wants to join`,
-		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5"><strong>${escape(requester.name)}</strong> (@${escape(requester.handle)}) asked to join <strong>${escape(activity.title)}</strong>, which is full.</p>` +
+		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5"><strong>${escape(requester.name)}</strong> (@${escape(requester.handle)}) asked to join <strong>${escape(activity.title)}</strong>${why}.</p>` +
 			detailTable(rows) +
-			`<p style="margin:16px 0 0;font-size:13px;color:#857f70">Approving takes a free spot if one opened up, or adds one.</p>` +
+			`<p style="margin:16px 0 0;font-size:13px;color:#857f70">${approving}</p>` +
 			button(link, 'Review the request')
 	);
 
@@ -254,7 +286,7 @@ export async function notifyWaitlistApproved(
 	];
 
 	const text = [
-		`${activity.host.name} approved your request — you're in for "${activity.title}".`,
+		`${activity.host.name} approved your request. You're in for "${activity.title}".`,
 		'',
 		...rows.map(([k, v]) => `${k}: ${v}`),
 		'',
@@ -262,7 +294,7 @@ export async function notifyWaitlistApproved(
 	].join('\n');
 
 	const html = shell(
-		`You're in — ${escape(activity.title)}`,
+		`You're in: ${escape(activity.title)}`,
 		`<p style="margin:0 0 16px;font-size:15px;line-height:1.5"><strong>${escape(activity.host.name)}</strong> approved your request. A spot opened up for you.</p>` +
 			detailTable(rows) +
 			button(link, 'View the activity')

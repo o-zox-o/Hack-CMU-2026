@@ -10,7 +10,7 @@ import type { Activity, Comment, UserDoc } from '$lib/types';
 import { hashPassword } from './auth';
 
 /** Bump whenever you edit the data below so a running dev server re-seeds. */
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 12;
 
 export interface SeedData {
 	users: UserDoc[];
@@ -24,6 +24,191 @@ export const DEMO_PASSWORD = 'tagalong';
 /** Minutes/hours/days from "now", so seed data never goes stale. */
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 const hoursAgo = (h: number) => hoursFromNow(-h);
+
+/**
+ * Completed activities behind us, so demo gardens have something in them.
+ * Spread across the demo accounts and weighted towards Mei, who is the
+ * account the login page hands out.
+ */
+function pastRuns(): Activity[] {
+	const done = (
+		id: string,
+		title: string,
+		category: Activity['category'],
+		campus: Activity['campus'],
+		hostId: string,
+		memberIds: string[],
+		daysAgo: number,
+		costCents: number,
+		interests: string[]
+	): Activity => ({
+		id,
+		title,
+		body: '',
+		category,
+		campus,
+		hostId,
+		location: 'Around campus',
+		startsAt: hoursFromNow(-24 * daysAgo),
+		spots: memberIds.length,
+		memberIds,
+		waitlistIds: [],
+		visibility: 'public',
+		approvalRequired: false,
+		// The host confirmed it the evening it happened.
+		completedAt: hoursFromNow(-24 * daysAgo + 4),
+		costCents,
+		costBasis: 'per-person',
+		createdAt: hoursFromNow(-24 * (daysAgo + 3)),
+		interests
+	});
+
+	return [
+		done(
+			'a_past_costco1',
+			'Costco run',
+			'groceries',
+			'cmu',
+			'u_mei',
+			['u_mei', 'u_nori', 'u_theo'],
+			6,
+			1700,
+			['groceries', 'bulk buys']
+		),
+		done(
+			'a_past_costco2',
+			'Costco run',
+			'groceries',
+			'cmu',
+			'u_mei',
+			['u_mei', 'u_satsuki', 'u_lin'],
+			13,
+			1700,
+			['groceries', 'bulk buys']
+		),
+		done(
+			'a_past_costco3',
+			'Costco run',
+			'groceries',
+			'cmu',
+			'u_mei',
+			['u_mei', 'u_nori'],
+			20,
+			1700,
+			['groceries', 'bulk buys']
+		),
+		done(
+			'a_past_ramen',
+			'Ramen order',
+			'food',
+			'cmu',
+			'u_theo',
+			['u_theo', 'u_mei', 'u_satsuki', 'u_ava'],
+			4,
+			1200,
+			['food']
+		),
+		done(
+			'a_past_karaoke',
+			'Karaoke night',
+			'hangouts',
+			'cmu',
+			'u_satsuki',
+			['u_satsuki', 'u_mei', 'u_pria', 'u_dev'],
+			9,
+			2000,
+			['music']
+		),
+		done(
+			'a_past_hike',
+			'Frick Park hike',
+			'hangouts',
+			'cmu',
+			'u_pria',
+			['u_pria', 'u_satsuki', 'u_ava', 'u_marcus'],
+			16,
+			0,
+			['outdoors']
+		),
+		done(
+			'a_past_boardgames',
+			'Board game night',
+			'hangouts',
+			'pitt',
+			'u_kanta',
+			['u_kanta', 'u_lin', 'u_dev'],
+			11,
+			0,
+			['board games']
+		),
+		done(
+			'a_past_airport',
+			'Airport run',
+			'rides',
+			'pitt',
+			'u_kanta',
+			['u_kanta', 'u_theo', 'u_marcus'],
+			18,
+			1300,
+			['rides', 'driving']
+		),
+		done(
+			'a_past_ikea',
+			'IKEA haul',
+			'supplies',
+			'pitt',
+			'u_lin',
+			['u_lin', 'u_kanta', 'u_nori'],
+			24,
+			900,
+			['furniture', 'diy']
+		),
+		done(
+			'a_past_market',
+			'Farmers market',
+			'groceries',
+			'cmu',
+			'u_ava',
+			['u_ava', 'u_satsuki', 'u_pria'],
+			8,
+			1500,
+			['farmers markets']
+		),
+		done(
+			'a_past_ball1',
+			'Pickup basketball',
+			'sports',
+			'cmu',
+			'u_theo',
+			['u_theo', 'u_mei', 'u_dev'],
+			5,
+			0,
+			['sports', 'basketball']
+		),
+		done(
+			'a_past_ball2',
+			'Pickup basketball',
+			'sports',
+			'cmu',
+			'u_theo',
+			['u_theo', 'u_mei', 'u_marcus'],
+			12,
+			0,
+			['sports', 'basketball']
+		),
+		done(
+			'a_past_ball3',
+			'Pickup basketball',
+			'sports',
+			'cmu',
+			'u_theo',
+			['u_theo', 'u_mei', 'u_dev'],
+			19,
+			0,
+			['sports', 'basketball']
+		)
+	];
+}
 
 export function seedData(): SeedData {
 	/** Every seeded account signs in with this password. */
@@ -152,15 +337,32 @@ export function seedData(): SeedData {
 		}
 	];
 
+	/* Not a student: signed up with a personal address. Sees public activities
+	   only, which is the whole point of the tier. */
+	users.push({
+		id: 'u_sam',
+		name: 'Sam Reyes',
+		handle: 'sam',
+		campus: 'cmu',
+		accountType: 'general',
+		bio: 'Not a student, just live in Shadyside and like a good Costco run.',
+		avatarSeed: 5,
+		email: 'sam.reyes@gmail.com',
+		passwordHash: demoHash,
+		interests: ['groceries', 'food', 'outdoors'],
+		joinedAt: hoursAgo(24 * 30)
+	});
+
 	const activities: Activity[] = [
 		{
 			id: 'a_spotify',
-			title: 'Spotify Duo — 1 slot left, $6/mo',
+			visibility: 'students',
+			title: 'Spotify Duo, 1 slot left, $6/mo',
 			body: "Family plan, 4 of us on it already. Need one more to bring everyone's share down. Venmo monthly, I'll add you the same day. Must be able to set your address to Pittsburgh.",
 			category: 'subscriptions',
 			campus: 'cmu',
 			hostId: 'u_satsuki',
-			location: 'Online — Venmo @satsuki',
+			location: 'Online, Venmo @satsuki',
 			startsAt: hoursFromNow(48),
 			spots: 6,
 			memberIds: ['u_satsuki', 'u_nori', 'u_mei', 'u_theo', 'u_lin'],
@@ -171,7 +373,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_costco',
-			title: 'Costco run Saturday — I drive, we split gas + membership',
+			title: 'Costco run Saturday: I drive, we split gas + membership',
 			body: 'Heading out ~10am Saturday, back by 1. Room for 3. Split is gas ($12ish) plus $5 each toward my membership. Bring your own bags, we are not paying for boxes again.',
 			category: 'groceries',
 			campus: 'cmu',
@@ -187,7 +389,8 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_airport',
-			title: 'PIT airport Uber — Friday 6am, splitting 4 ways',
+			approvalRequired: true,
+			title: 'PIT airport Uber, Friday 6am, splitting 4 ways',
 			body: "Flight is at 8:40 so I'm leaving at 6 sharp. UberXL from Oakland is about $52, which is $13 each if we fill it. I'll book and you Venmo me at the curb.",
 			category: 'rides',
 			campus: 'pitt',
@@ -203,7 +406,9 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_ikea',
-			title: 'IKEA Robinson haul — need 2 more for the car',
+			visibility: 'private',
+			approvalRequired: true,
+			title: 'IKEA Robinson haul, need 2 more for the car',
 			body: "Getting a desk and a shelf, there's room for two people and their flat-packs. Leaving Sunday noon. Gas split only, no charge for the trunk space.",
 			category: 'supplies',
 			campus: 'pitt',
@@ -219,6 +424,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_ramen',
+			visibility: 'campus',
 			title: 'Hitting the $35 delivery minimum at Ramen Bar',
 			body: 'Ordering in ~40 min. I need about $12 more on the ticket to clear the minimum and kill the small-order fee. Drop what you want in the comments, meet in the Donner lounge.',
 			category: 'food',
@@ -235,7 +441,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_giant_eagle',
-			title: 'Weekly Giant Eagle walk — produce split',
+			title: 'Weekly Giant Eagle walk, produce split',
 			body: 'Every Tuesday. We buy the big bags of produce and divide them up on the walk back. Way cheaper than buying singles and nothing rots before you eat it.',
 			category: 'groceries',
 			campus: 'cmu',
@@ -284,7 +490,7 @@ export function seedData(): SeedData {
 		{
 			id: 'a_textbook',
 			title: 'Splitting the 21-241 textbook rental',
-			body: 'Rental is $60 for the semester. Two of us can share — I need it Mon/Wed, you take it Tue/Thu/weekend. Has worked fine for me twice now.',
+			body: 'Rental is $60 for the semester. Two of us can share. I need it Mon/Wed, you take it Tue/Thu/weekend. Has worked fine for me twice now.',
 			category: 'supplies',
 			campus: 'cmu',
 			hostId: 'u_nori',
@@ -299,7 +505,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_farmers',
-			title: 'Squirrel Hill farmers market — bulk eggs & bread',
+			title: 'Squirrel Hill farmers market, bulk eggs & bread',
 			body: 'The stands do way better prices by the dozen/loaf if you buy a lot. Four of us clears the bulk tier easily. Sunday morning, walkable from campus.',
 			category: 'groceries',
 			campus: 'cmu',
@@ -315,7 +521,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_free_pizza',
-			title: 'Free pizza — leftovers from the SCS town hall',
+			title: 'Free pizza, leftovers from the SCS town hall',
 			body: 'Six untouched boxes in the Gates 6th floor kitchen. First come first served. Bring a container if you want to take slices back.',
 			category: 'food',
 			campus: 'cmu',
@@ -363,7 +569,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_wvu_sams',
-			title: "Sam's Club run Sunday — Morgantown",
+			title: "Sam's Club run Sunday, Morgantown",
 			body: 'I have the membership and a truck. Three seats, split gas, bring your list. Back by 3.',
 			category: 'groceries',
 			campus: 'wvu',
@@ -379,7 +585,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_karaoke',
-			title: 'Karaoke in Shadyside Friday — room fits 6',
+			title: 'Karaoke in Shadyside Friday, room fits 6',
 			body: "Booked a room 9pm–11pm, it's $60 split however many show up. No talent required, we are all terrible.",
 			category: 'hangouts',
 			campus: 'cmu',
@@ -396,7 +602,7 @@ export function seedData(): SeedData {
 		{
 			id: 'a_frick_hike',
 			title: 'Easy Frick Park loop Sunday morning',
-			body: 'About 4 miles, casual pace, back by noon. Free — just show up. Dogs welcome.',
+			body: 'About 4 miles, casual pace, back by noon. Free, just show up. Dogs welcome.',
 			category: 'hangouts',
 			campus: 'pitt',
 			hostId: 'u_kanta',
@@ -411,7 +617,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_study_hunt',
-			title: 'Finals grind at Hunt — 3rd floor, all day Saturday',
+			title: 'Finals grind at Hunt, 3rd floor, all day Saturday',
 			body: 'Claiming the big table at 10am. Come and go as you like, we take a coffee run every couple of hours.',
 			category: 'hangouts',
 			campus: 'cmu',
@@ -427,7 +633,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_nyc_weekend',
-			title: 'NYC weekend trip — museums + food',
+			title: 'NYC weekend trip: museums + food',
 			body: 'Going to NYC for the weekend and looking for a few people to explore museums, try restaurants, and split transportation.',
 			category: 'hangouts',
 			campus: 'cmu',
@@ -491,7 +697,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_concert',
-			title: 'Concert downtown — split ride',
+			title: 'Concert downtown, split ride',
 			body: 'Going to a concert downtown and would love a group to go together and split the ride back.',
 			category: 'rides',
 			campus: 'duquesne',
@@ -524,8 +730,8 @@ export function seedData(): SeedData {
 		{
 			id: 'a_rock_climbing',
 			title: 'Beginner rock climbing',
-			body: 'Going climbing this weekend. Totally fine if you have never climbed before — looking for a few people to go together.',
-			category: 'hangouts',
+			body: 'Going climbing this weekend. Totally fine if you have never climbed before. Looking for a few people to go together.',
+			category: 'sports',
 			campus: 'pitt',
 			hostId: 'u_pria',
 			location: 'Ascend Pittsburgh',
@@ -669,7 +875,7 @@ export function seedData(): SeedData {
 			id: 'a_yoga',
 			title: 'Morning yoga in Schenley',
 			body: 'Low-key outdoor yoga session. Beginners welcome.',
-			category: 'hangouts',
+			category: 'sports',
 			campus: 'pitt',
 			hostId: 'u_lin',
 			location: 'Schenley Plaza',
@@ -685,7 +891,7 @@ export function seedData(): SeedData {
 			id: 'a_running',
 			title: 'Easy 5K morning run',
 			body: 'Conversational pace, not a race. Looking for people who want a casual running group.',
-			category: 'hangouts',
+			category: 'sports',
 			campus: 'cmu',
 			hostId: 'u_theo',
 			location: 'Schenley Park',
@@ -747,7 +953,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_escape_room',
-			title: 'Escape room — need 3 more people',
+			title: 'Escape room, need 3 more people',
 			body: 'Group rate gets much cheaper with six people. Looking for people who like puzzles.',
 			category: 'hangouts',
 			campus: 'cmu',
@@ -936,7 +1142,62 @@ export function seedData(): SeedData {
 			costBasis: 'per-person',
 			createdAt: hoursAgo(2),
 			interests: ['wellness', 'mental health', 'walking', 'tea', 'relaxation']
-		}
+		},
+
+		{
+			id: 'a_basketball',
+			title: 'Pickup basketball, Tuesday nights',
+			body: 'Regular run at the Cohon gym courts. Usually 8 to 10 of us, all skill levels. Free with your student ID, just bring a light and a dark shirt.',
+			category: 'sports',
+			campus: 'cmu',
+			hostId: 'u_theo',
+			location: 'Cohon Center courts',
+			startsAt: hoursFromNow(29),
+			spots: 10,
+			memberIds: ['u_theo', 'u_dev', 'u_marcus'],
+			costCents: 0,
+			costBasis: 'per-person',
+			createdAt: hoursAgo(11),
+			interests: ['sports', 'basketball', 'fitness']
+		},
+		{
+			id: 'a_tennis',
+			title: 'Tennis court time, splitting the hourly rate',
+			body: 'Booked two hours on Sunday morning. The court is $24 an hour and I need three more people to make it worth it. Rackets available if you do not have one.',
+			category: 'sports',
+			campus: 'pitt',
+			hostId: 'u_ava',
+			location: 'Mellon Park courts',
+			startsAt: hoursFromNow(58),
+			spots: 4,
+			memberIds: ['u_ava'],
+			costCents: 4800,
+			costBasis: 'total',
+			createdAt: hoursAgo(6),
+			interests: ['sports', 'tennis', 'fitness']
+		},
+		{
+			id: 'a_soccer',
+			title: 'Sunday league soccer, need subs',
+			body: 'Casual rec league over at the Oakland fields. We are short two people most weeks. No league fee, just show up in cleats.',
+			category: 'sports',
+			campus: 'pitt',
+			hostId: 'u_kanta',
+			location: 'Oakland rec fields',
+			startsAt: hoursFromNow(70),
+			spots: 8,
+			memberIds: ['u_kanta', 'u_lin'],
+			costCents: 0,
+			costBasis: 'per-person',
+			createdAt: hoursAgo(15),
+			interests: ['sports', 'soccer', 'outdoors']
+		},
+
+		/* ---- history ------------------------------------------------------
+		   Activities that already happened and that their hosts confirmed.
+		   These are the only ones that count as grass, so without a few the
+		   demo profiles would all be bare patches. */
+		...pastRuns()
 	];
 
 	const comments: Comment[] = [

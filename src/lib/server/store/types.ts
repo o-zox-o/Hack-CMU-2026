@@ -1,6 +1,9 @@
 import type {
+	AccountType,
 	ActivityPatch,
 	ActivityView,
+	CampusId,
+	CommentVisibility,
 	HostStanding,
 	CommentView,
 	FeedQuery,
@@ -19,6 +22,9 @@ export interface Viewer {
 	location?: LatLng;
 	/** From the signup survey — drives the "For you" ordering. */
 	interests?: string[];
+	/** Both drive who may see student-only activities. */
+	campus?: CampusId;
+	accountType?: AccountType;
 }
 
 /** The parts of a profile someone can edit. Any field left out is untouched. */
@@ -45,6 +51,11 @@ export type WaitlistResult =
 			ok: false;
 			reason: 'not-found' | 'open' | 'already-joined' | 'already-waiting' | 'not-waiting';
 	  };
+
+/** Only the host can say it happened, and only once it has started. */
+export type CompleteResult =
+	| { ok: true; activity: ActivityView }
+	| { ok: false; reason: 'not-found' | 'not-host' | 'not-started' };
 
 /** Editing is the host's call, and can't strand people who already joined. */
 export type UpdateResult =
@@ -75,6 +86,8 @@ export type LeaveResult =
  */
 export interface Store {
 	getUser(id: string): Promise<User | null>;
+	/** Look someone up by their @handle, which is what public profile URLs use. */
+	getUserByHandle(handle: string): Promise<User | null>;
 	/**
 	 * The user plus every interest that should shape their feed — what they
 	 * picked, plus what they've been learned to like. One read, because hooks
@@ -97,9 +110,18 @@ export interface Store {
 	 * page can say so without revealing who wrote them.
 	 */
 	listComments(activityId: string, viewerId?: string): Promise<CommentThread>;
+	/**
+	 * Everything this user hosts / has joined, with no visibility filtering:
+	 * these are a privileged read, for their own pages and for counting their
+	 * grass honestly. A page showing one person's activities to someone else
+	 * must filter the result itself. See /u/[handle].
+	 */
 	activitiesHostedBy(userId: string, viewer?: Viewer): Promise<ActivityView[]>;
 	activitiesJoinedBy(userId: string, viewer?: Viewer): Promise<ActivityView[]>;
-	/** Activity counts per user, highest first — drives the "Top grass toucher" badge. */
+	/**
+	 * Completed-activity counts per user, highest first. Drives the "Top grass
+	 * toucher" badge, so it counts the same things the garden does.
+	 */
 	grassLeaderboard(limit?: number): Promise<{ userId: string; score: number }[]>;
 
 	createActivity(input: NewActivityInput, hostId: string): Promise<ActivityView>;
@@ -108,6 +130,11 @@ export interface Store {
 	 * private. Refuses to cut `spots` below the people already in.
 	 */
 	updateActivity(id: string, hostId: string, patch: ActivityPatch): Promise<UpdateResult>;
+	/**
+	 * Host confirms it happened, which is what makes it count as grass for
+	 * everyone who was in. `complete: false` undoes it.
+	 */
+	completeActivity(id: string, hostId: string, complete?: boolean): Promise<CompleteResult>;
 	joinActivity(id: string, userId: string): Promise<JoinResult>;
 	leaveActivity(id: string, userId: string): Promise<LeaveResult>;
 	/** Ask the host for a spot — because it's full, or because they vet everyone. */
@@ -123,5 +150,11 @@ export interface Store {
 	/** How a host is doing, and whether they've crossed the warning line. */
 	hostStanding(hostId: string): Promise<HostStanding>;
 
-	addComment(activityId: string, authorId: string, body: string): Promise<CommentView | null>;
+	/** `visibility` defaults to 'everyone'. */
+	addComment(
+		activityId: string,
+		authorId: string,
+		body: string,
+		visibility?: CommentVisibility
+	): Promise<CommentView | null>;
 }

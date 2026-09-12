@@ -1,8 +1,12 @@
 /**
- * Touch grass — the profile's progression.
+ * Touch grass: the profile's progression.
  *
- * Every activity you're part of is a blade of grass you've touched. The garden
- * on your profile grows with the count, and badges mark the milestones.
+ * Every activity that actually happened is a blade of grass you touched. The
+ * garden on your profile grows with the count, and badges mark the milestones.
+ *
+ * "Actually happened" means the host marked it complete, not just that the
+ * start time went by. Posting a plan and letting it lapse grows nothing, so
+ * the score can't be farmed by filling a calendar.
  *
  * Pure functions over ActivityView[], so the profile page, a future leaderboard
  * and any test can all use them without a database.
@@ -15,34 +19,38 @@ import type { ActivityView, CategoryId } from './types';
 /* -------------------------------------------------------------------------- */
 
 export interface GrassStats {
-	/** Everything you host or have joined. */
+	/** Completed activities. This is the number the garden grows from. */
 	score: number;
+	/** Completed activities you hosted / joined. */
 	hosted: number;
 	joined: number;
-	/** Already happened — grass genuinely touched. */
+	/** Same as `score`, named for what it means on the page. */
 	touched: number;
-	/** Still to come — planted, not yet grown. */
+	/** Signed up for, not yet confirmed as done. Planted, not grown. */
 	growing: number;
+	/**
+	 * Started, but the host hasn't confirmed it happened. Worth surfacing:
+	 * for a host these are theirs to mark, and for everyone else it explains
+	 * why something they went to isn't counted yet.
+	 */
+	awaitingHost: number;
 	byCategory: Partial<Record<CategoryId, number>>;
 }
 
-export function grassStats(
-	hosting: ActivityView[],
-	joined: ActivityView[],
-	now = Date.now()
-): GrassStats {
+export function grassStats(hosting: ActivityView[], joined: ActivityView[]): GrassStats {
 	const all = [...hosting, ...joined];
-	const past = all.filter((a) => new Date(a.startsAt).getTime() < now);
+	const done = all.filter((a) => a.isComplete);
 
 	const byCategory: Partial<Record<CategoryId, number>> = {};
-	for (const a of all) byCategory[a.category] = (byCategory[a.category] ?? 0) + 1;
+	for (const a of done) byCategory[a.category] = (byCategory[a.category] ?? 0) + 1;
 
 	return {
-		score: all.length,
-		hosted: hosting.length,
-		joined: joined.length,
-		touched: past.length,
-		growing: all.length - past.length,
+		score: done.length,
+		hosted: hosting.filter((a) => a.isComplete).length,
+		joined: joined.filter((a) => a.isComplete).length,
+		touched: done.length,
+		growing: all.length - done.length,
+		awaitingHost: all.filter((a) => a.awaitingCompletion).length,
 		byCategory
 	};
 }
@@ -116,21 +124,26 @@ const RULES: { badge: Badge; earned: (c: BadgeContext) => boolean }[] = [
 		badge: {
 			id: 'first-blade',
 			label: 'First blade',
-			blurb: 'Joined your first activity',
+			blurb: 'First activity that actually happened',
 			icon: 'sprout'
 		},
 		earned: (c) => c.stats.score >= 1
 	},
 	{
-		badge: { id: 'regular', label: 'Regular', blurb: 'Five activities in', icon: 'star' },
+		badge: { id: 'regular', label: 'Regular', blurb: 'Five activities done', icon: 'star' },
 		earned: (c) => c.stats.score >= 5
 	},
 	{
-		badge: { id: 'legend', label: 'Certified outside', blurb: 'Twenty activities', icon: 'crown' },
+		badge: {
+			id: 'legend',
+			label: 'Certified outside',
+			blurb: 'Twenty activities done',
+			icon: 'crown'
+		},
 		earned: (c) => c.stats.score >= 20
 	},
 	{
-		badge: { id: 'host', label: 'Green thumb', blurb: 'Hosted three activities', icon: 'leaf' },
+		badge: { id: 'host', label: 'Green thumb', blurb: 'Hosted three that happened', icon: 'leaf' },
 		earned: (c) => c.stats.hosted >= 3
 	},
 	{
@@ -149,6 +162,10 @@ const RULES: { badge: Badge; earned: (c: BadgeContext) => boolean }[] = [
 	{
 		badge: { id: 'driver', label: 'Designated driver', blurb: 'Three rides', icon: 'rides' },
 		earned: (c) => (c.stats.byCategory.rides ?? 0) >= 3
+	},
+	{
+		badge: { id: 'sporty', label: 'Team player', blurb: 'Three sports sessions', icon: 'sports' },
+		earned: (c) => (c.stats.byCategory.sports ?? 0) >= 3
 	}
 ];
 

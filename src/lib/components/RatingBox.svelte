@@ -32,7 +32,7 @@
 			</p>
 		{:else if rating.count > 0}
 			<p class="mt-1 text-fluid-xs text-ink-muted">
-				{rating.count} of {MIN_RATINGS_TO_SHOW} ratings in — the average shows once one more lands, so
+				{rating.count} of {MIN_RATINGS_TO_SHOW} ratings in. The average shows once one more lands, so
 				no single score can be traced back.
 			</p>
 		{/if}
@@ -77,12 +77,12 @@
 					{/each}
 				</div>
 				<span class="text-fluid-xs text-ink-muted"
-					>Anonymous — the host never sees who said what.</span
+					>Anonymous. The host never sees who said what.</span
 				>
 			</form>
 		{:else if rating.rated}
 			<p class="mt-1.5 inline-flex items-center gap-1 text-fluid-xs font-bold text-brand-ink">
-				<Icon name="check" size={13} strokeWidth={3} /> Thanks — your rating is in, anonymously.
+				<Icon name="check" size={13} strokeWidth={3} /> Thanks, your rating is in, anonymously.
 			</p>
 		{/if}
 	</section>

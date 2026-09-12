@@ -4,13 +4,10 @@ import { isPast } from '$lib/format';
 import { campusesByDistance, radiusMiles } from '$lib/geo';
 import { listActivities } from '$lib/server/db';
 import { campusMeta, DEFAULT_RADIUS } from '$lib/types';
+import { viewerFrom } from '$lib/server/viewer';
 
 export const load = (async ({ locals, url }) => {
-	const viewer = {
-		id: locals.user.id,
-		location: locals.location,
-		interests: locals.interests
-	};
+	const viewer = viewerFrom(locals);
 
 	/* The rail's count follows whatever place the user is actually looking at.
 	   Only the location scope carries over — category, free and search narrow

@@ -19,13 +19,13 @@ export const CATEGORIES = [
 		id: 'hangouts',
 		label: 'Hangouts',
 		icon: 'hangouts',
-		blurb: 'Karaoke, hikes, study sessions — plans, not purchases'
+		blurb: 'Karaoke, hikes, study sessions. Plans, not purchases'
 	},
 	{
 		id: 'subscriptions',
 		label: 'Subscriptions',
 		icon: 'subscriptions',
-		blurb: 'Spotify, Netflix, Duolingo — split the family plan'
+		blurb: 'Spotify, Netflix, Duolingo. Split the family plan'
 	},
 	{
 		id: 'groceries',
@@ -42,6 +42,12 @@ export const CATEGORIES = [
 		blurb: 'IKEA hauls, dorm stuff, textbooks'
 	},
 	{ id: 'errands', label: 'Errands', icon: 'errands', blurb: 'Laundry, moving help, post office' },
+	{
+		id: 'sports',
+		label: 'Sports',
+		icon: 'sports',
+		blurb: 'Pickup games, gym buddies, climbing, court time'
+	},
 	{ id: 'other', label: 'Misc', icon: 'other', blurb: 'Anything else worth sharing' }
 ] as const;
 
@@ -190,6 +196,7 @@ export const INTERESTS = [
 	'studying',
 	'textbooks',
 	'fitness',
+	'sports',
 	'outdoors',
 	'thrifting',
 	'furniture',
@@ -215,6 +222,7 @@ export const CATEGORY_INTERESTS: Record<CategoryId, string[]> = {
 	food: ['food'],
 	supplies: ['furniture', 'diy'],
 	errands: ['errands'],
+	sports: ['sports', 'fitness', 'outdoors'],
 	other: []
 };
 
@@ -222,12 +230,27 @@ export const CATEGORY_INTERESTS: Record<CategoryId, string[]> = {
 /* Users                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Where an account sits. Set once at signup from the email address and never
+ * changed by hand: a 'student' verified a .edu address, 'general' is anyone
+ * else. Only students can see or post student-only activities.
+ */
+export type AccountType = 'student' | 'general';
+
+export function isStudent(user: { accountType?: AccountType } | null | undefined): boolean {
+	// Absent means student: every account predates general sign-ups, and they
+	// all had to verify a .edu address to exist.
+	return (user?.accountType ?? 'student') === 'student';
+}
+
 /** Public shape — safe to put in a page payload or show to other users. */
 export interface User {
 	id: string;
 	name: string;
 	handle: string;
 	campus: CampusId;
+	/** Optional so accounts created before general sign-ups read as students. */
+	accountType?: AccountType;
 	bio: string;
 	/**
 	 * Private profiles keep their comments to the people in the activity.
@@ -259,6 +282,8 @@ export interface SignupInput {
 	name: string;
 	email: string;
 	campus: CampusId;
+	/** Decided from the email address at signup, not chosen. */
+	accountType: AccountType;
 	password: string;
 	/** From the signup survey. May be empty — the feed falls back to time + distance. */
 	interests: string[];
@@ -271,15 +296,48 @@ export interface SignupInput {
 export type CostBasis = 'per-person' | 'total';
 
 /**
- * Who can find an activity.
- *   'public'  — in the feed, like everything else.
- *   'private' — kept out of the feed and search. The link is the invite:
- *               anyone the host sends it to can open it and ask to join.
+ * Who can find an activity, narrowest last.
+ *
+ *   'public'   anyone with an account, general sign-ups included.
+ *   'students' anyone with a verified .edu address, whatever their campus.
+ *              This is the edu hub: general accounts can't see in.
+ *   'campus'   students at the host's own campus, and nobody else.
+ *   'private'  kept out of every feed and search. The link is the invite:
+ *              whoever the host sends it to can open it and ask to join.
+ *
+ * Only a student account may post to 'students' or 'campus'. Students can see
+ * everything they qualify for, general accounts see 'public' and 'private'.
  */
-export type Visibility = 'public' | 'private';
+export const VISIBILITIES = ['public', 'students', 'campus', 'private'] as const;
+export type Visibility = (typeof VISIBILITIES)[number];
 
 export function isVisibility(value: unknown): value is Visibility {
-	return value === 'public' || value === 'private';
+	return typeof value === 'string' && (VISIBILITIES as readonly string[]).includes(value);
+}
+
+/** The two tiers that need a verified student address. */
+export function isStudentOnly(visibility: Visibility): boolean {
+	return visibility === 'students' || visibility === 'campus';
+}
+
+/**
+ * Deliberately conservative: "would this activity be visible to an account
+ * like this one, knowing nothing about whether they're personally in it?"
+ *
+ * Used where a list of someone else's activities is rendered, like a public
+ * profile. Private always fails here, even for someone holding the link,
+ * because a profile is not that link. Erring towards hiding is the right way
+ * to err in a list you don't control.
+ */
+export function visibleToAccount(
+	visibility: Visibility,
+	activityCampus: CampusId,
+	viewer: { accountType?: AccountType; campus?: CampusId }
+): boolean {
+	if (visibility === 'private') return false;
+	if (visibility === 'public') return true;
+	if (!isStudent(viewer)) return false;
+	return visibility === 'students' || viewer.campus === activityCampus;
 }
 
 /** Stored shape in the database. Server-only. */
@@ -307,6 +365,11 @@ export interface Activity {
 	visibility?: Visibility;
 	/** Every join goes through the host, even while there are spots free. */
 	approvalRequired?: boolean;
+	/**
+	 * When the host confirmed it actually happened. Until this is set, nobody
+	 * gets grass for it: a plan on a calendar isn't grass touched.
+	 */
+	completedAt?: string;
 	costCents: number;
 	costBasis: CostBasis;
 	createdAt: string;
@@ -329,6 +392,11 @@ export interface ActivityView {
 	/** Resolved from the stored doc, so the UI never has to guess a default. */
 	visibility: Visibility;
 	approvalRequired: boolean;
+	completedAt: string | null;
+	/** The host says it happened. This is what turns it into grass. */
+	isComplete: boolean;
+	/** Started, but the host hasn't confirmed it happened yet. */
+	awaitingCompletion: boolean;
 	host: User;
 	members: User[];
 	/** Pending requests, oldest first. Only the host acts on these. */
@@ -411,11 +479,27 @@ export interface RatingSummary {
 /* Comments                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Who a comment is for.
+ *   'everyone' — anyone who can see the activity.
+ *   'members'  — only the people who joined it, plus the author.
+ */
+export type CommentVisibility = 'everyone' | 'members';
+
+export function isCommentVisibility(value: unknown): value is CommentVisibility {
+	return value === 'everyone' || value === 'members';
+}
+
 export interface Comment {
 	id: string;
 	activityId: string;
 	authorId: string;
 	body: string;
+	/**
+	 * Optional so comments written before this was a choice still parse —
+	 * those fall back to the author's profile-wide privacy setting.
+	 */
+	visibility?: CommentVisibility;
 	createdAt: string;
 }
 
@@ -423,6 +507,8 @@ export interface CommentView {
 	id: string;
 	body: string;
 	createdAt: string;
+	/** Resolved, so the UI can mark a comment that isn't public. */
+	visibility: CommentVisibility;
 	author: User;
 }
 

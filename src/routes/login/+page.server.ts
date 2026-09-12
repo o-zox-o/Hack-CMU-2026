@@ -5,7 +5,7 @@ import { setSessionCookie } from '$lib/server/auth';
 import { createUser, DEMO_PASSWORD, verifyLogin } from '$lib/server/db';
 import { validateLogin, validateSignup } from '$lib/validate';
 import { isEligibleCollegeEmail } from '$lib/server/collegeEmail';
-import { startPasswordlessEmail, verifyPasswordlessCode } from '$lib/server/auth0';
+import { checkVerificationCode, startEmailVerification } from '$lib/server/verifyEmail';
 import {
 	clearPendingSignupCookie,
 	readPendingSignupCookie,
@@ -53,7 +53,7 @@ export const actions = {
 	/** Validates the form, then emails a one-time code instead of creating the account yet. */
 	signup: async ({ request, cookies }) => {
 		const form = await request.formData();
-		const result = validateSignup(form);
+		const result = validateSignup(form, isEligibleCollegeEmail);
 		const echo = {
 			name: String(form.get('name') ?? ''),
 			email: String(form.get('email') ?? ''),
@@ -61,27 +61,24 @@ export const actions = {
 		};
 		if (!result.ok) return fail(400, { mode: 'signup' as const, errors: result.errors, ...echo });
 
-		// Our own check — authoritative regardless of what's configured in Auth0.
-		if (!isEligibleCollegeEmail(result.value.email)) {
-			return fail(400, {
-				mode: 'signup' as const,
-				errors: { email: 'Sign up with your .edu email address.' },
-				...echo
-			});
-		}
-
-		try {
-			await startPasswordlessEmail(result.value.email);
-		} catch {
+		// Everyone verifies their address. A .edu one also gets into the edu
+		// hub; anything else is a general account, which is still an account.
+		const started = await startEmailVerification(result.value.email);
+		if (!started.ok) {
 			return fail(502, {
 				mode: 'signup' as const,
-				errors: { form: "Couldn't send a verification code — try again in a moment." },
+				errors: { form: "Couldn't send a verification code. Try again in a moment." },
 				...echo
 			});
 		}
 
-		setPendingSignupCookie(cookies, result.value);
-		return { mode: 'signup' as const, step: 'verify' as const, email: result.value.email };
+		setPendingSignupCookie(cookies, result.value, started.codeHash);
+		return {
+			mode: 'signup' as const,
+			step: 'verify' as const,
+			email: result.value.email,
+			accountType: result.value.accountType
+		};
 	},
 
 	/** The one-time code from the signup email — creates the account once it checks out. */
@@ -90,7 +87,7 @@ export const actions = {
 		if (!pending) {
 			return fail(400, {
 				mode: 'signup' as const,
-				errors: { form: 'That signup session expired — please start again.' }
+				errors: { form: 'That signup session expired. Please start again.' }
 			});
 		}
 
@@ -100,30 +97,30 @@ export const actions = {
 			return fail(400, {
 				mode: 'signup' as const,
 				step: 'verify' as const,
-				email: pending.email,
+				email: pending.input.email,
 				errors: { form: 'Enter the code we emailed you.' }
 			});
 		}
 
-		const verified = await verifyPasswordlessCode(pending.email, code);
+		const verified = await checkVerificationCode(pending.input.email, code, pending.codeHash);
 		if (!verified) {
 			return fail(400, {
 				mode: 'signup' as const,
 				step: 'verify' as const,
-				email: pending.email,
-				errors: { form: 'That code is wrong or expired — check your email and try again.' }
+				email: pending.input.email,
+				errors: { form: 'That code is wrong or expired. Check your email and try again.' }
 			});
 		}
 
-		const created = await createUser(pending);
+		const created = await createUser(pending.input);
 		clearPendingSignupCookie(cookies);
 		if (!created.ok) {
 			return fail(409, {
 				mode: 'signup' as const,
-				errors: { email: 'There is already an account with this email — log in instead.' },
-				name: pending.name,
-				email: pending.email,
-				campus: pending.campus
+				errors: { email: 'There is already an account with this email. Log in instead.' },
+				name: pending.input.name,
+				email: pending.input.email,
+				campus: pending.input.campus
 			});
 		}
 

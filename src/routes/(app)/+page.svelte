@@ -122,9 +122,9 @@
 					<a
 						href={withParams({ within: 'all', campus: null })}
 						class="font-bold text-brand-ink hover:underline">Widen the search</a
-					> — or be the first to post one.
+					>, or be the first to post one.
 				{:else if hasFilter}
-					No activities match this filter. Try clearing it — or be the first to post one.
+					No activities match this filter. Try clearing it, or be the first to post one.
 				{:else}
 					Be the first to post something people can tag along to.
 				{/if}

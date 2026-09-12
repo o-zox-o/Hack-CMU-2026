@@ -18,9 +18,13 @@ import {
 	type UserDoc
 } from '$lib/types';
 import {
+	activityUpdates,
 	campusScope,
+	canOpenActivity,
 	canSeeComment,
 	hostStandingFrom,
+	isListed,
+	needsApproval,
 	ratingSummary,
 	handleBase,
 	newActivityDoc,
@@ -103,6 +107,13 @@ export function createMemoryStore(): Store {
 			return doc ? toUser(doc) : null;
 		},
 
+		async getUserByHandle(handle) {
+			const doc = [...state.users.values()].find(
+				(u) => u.handle.toLowerCase() === handle.toLowerCase()
+			);
+			return doc ? toUser(doc) : null;
+		},
+
 		async getSessionUser(id) {
 			const doc = state.users.get(id);
 			if (!doc) return null;
@@ -153,7 +164,7 @@ export function createMemoryStore(): Store {
 		},
 
 		async listActivities(query = {}, viewer) {
-			let rows = [...state.activities.values()];
+			let rows = [...state.activities.values()].filter((a) => isListed(a, viewer));
 			const scope = campusScope(query, viewer);
 			if (scope) rows = rows.filter((a) => scope.includes(a.campus));
 			if (query.category) rows = rows.filter((a) => a.category === query.category);
@@ -163,7 +174,10 @@ export function createMemoryStore(): Store {
 
 		async getActivity(id, viewer) {
 			const a = state.activities.get(id);
-			return a ? view(a, viewer) : null;
+			// Student-only activities are sealed, not just unlisted: no view for
+			// someone who shouldn't have it, even holding the link.
+			if (!a || !canOpenActivity(a, viewer)) return null;
+			return view(a, viewer);
 		},
 
 		async listComments(activityId, viewerId) {
@@ -175,7 +189,9 @@ export function createMemoryStore(): Store {
 			const activity = state.activities.get(activityId);
 			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
 
-			const allowed = rows.filter((c) => canSeeComment(users.get(c.authorId), viewerId, isMember));
+			const allowed = rows.filter((c) =>
+				canSeeComment(c, users.get(c.authorId), viewerId, isMember)
+			);
 			return {
 				visible: allowed.map((c) => toCommentView(c, users)),
 				hidden: rows.length - allowed.length
@@ -197,6 +213,7 @@ export function createMemoryStore(): Store {
 		async grassLeaderboard(limit = 10) {
 			const counts = new Map<string, number>();
 			for (const a of state.activities.values()) {
+				if (!a.completedAt) continue; // only what actually happened counts
 				for (const m of a.memberIds) counts.set(m, (counts.get(m) ?? 0) + 1);
 			}
 			return [...counts.entries()]
@@ -211,10 +228,37 @@ export function createMemoryStore(): Store {
 			return view(a, { id: hostId });
 		},
 
+		async updateActivity(id, hostId, patch) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			if (patch.spots !== undefined && patch.spots < a.memberIds.length) {
+				return { ok: false, reason: 'too-few-spots' };
+			}
+
+			Object.assign(a, activityUpdates(patch));
+			return { ok: true, activity: view(a, { id: hostId }) };
+		},
+
+		async completeActivity(id, hostId, complete = true) {
+			const a = state.activities.get(id);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (a.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			if (complete && new Date(a.startsAt).getTime() > Date.now()) {
+				return { ok: false, reason: 'not-started' };
+			}
+
+			if (complete) a.completedAt = new Date().toISOString();
+			else delete a.completedAt;
+			return { ok: true, activity: view(a, { id: hostId }) };
+		},
+
 		async joinActivity(id, userId) {
 			const a = state.activities.get(id);
 			if (!a) return { ok: false, reason: 'not-found' };
 			if (a.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			// The host vets everyone here — this has to go through the waitlist.
+			if (a.approvalRequired) return { ok: false, reason: 'needs-approval' };
 			if (a.memberIds.length >= a.spots) return { ok: false, reason: 'full' };
 			a.memberIds.push(userId);
 			return { ok: true, activity: view(a, { id: userId }) };
@@ -233,7 +277,7 @@ export function createMemoryStore(): Store {
 			const a = state.activities.get(id);
 			if (!a) return { ok: false, reason: 'not-found' };
 			if (a.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
-			if (a.memberIds.length < a.spots) return { ok: false, reason: 'not-full' };
+			if (!needsApproval(a)) return { ok: false, reason: 'open' };
 			a.waitlistIds ??= [];
 			if (a.waitlistIds.includes(userId)) return { ok: false, reason: 'already-waiting' };
 			a.waitlistIds.push(userId);
@@ -303,9 +347,9 @@ export function createMemoryStore(): Store {
 			return hostStandingFrom(hosted.length, averages);
 		},
 
-		async addComment(activityId, authorId, body) {
+		async addComment(activityId, authorId, body, visibility) {
 			if (!state.activities.has(activityId)) return null;
-			const c = newCommentDoc(activityId, authorId, body);
+			const c = newCommentDoc(activityId, authorId, body, visibility);
 			state.comments.push(c);
 			return toCommentView(c, usersFor([authorId]));
 		}

@@ -14,15 +14,18 @@ import { verifyPassword } from '../auth';
 import { learnedInterests } from '$lib/matching';
 import { seedData } from '../seed';
 import {
+	isStudent,
 	MAX_SCORE,
 	MIN_SCORE,
 	type Activity,
+	type Visibility,
 	type Comment,
 	type Rating,
 	type User,
 	type UserDoc
 } from '$lib/types';
 import {
+	activityUpdates,
 	campusScope,
 	canSeeComment,
 	hostStandingFrom,
@@ -126,6 +129,28 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 	return db;
 }
 
+/**
+ * The $or clauses that mean "this viewer may see it in the feed" — the query
+ * form of isListed() in shared.ts. Legacy docs have no `visibility` field and
+ * count as public.
+ */
+function visibleToClauses(viewer?: Viewer): Filter<ActivityRow>[] {
+	const open: Visibility[] = ['public'];
+	if (isStudent(viewer)) open.push('students');
+
+	return [
+		{ visibility: { $in: open } },
+		{ visibility: { $exists: false } },
+		...(isStudent(viewer) && viewer?.campus
+			? [{ visibility: 'campus' as const, campus: viewer.campus }]
+			: []),
+		// Already involved: always visible, whatever it was changed to since.
+		...(viewer?.id
+			? [{ hostId: viewer.id }, { memberIds: viewer.id }, { waitlistIds: viewer.id }]
+			: [])
+	];
+}
+
 export function createMongoStore(uri: string, dbName: string): Store {
 	const db = () => (globalThis.__tagalongMongo ??= connect(uri, dbName));
 	const users = async (): Promise<Collection<UserRow>> => (await db()).collection('users');
@@ -189,6 +214,12 @@ export function createMongoStore(uri: string, dbName: string): Store {
 	return {
 		async getUser(id) {
 			const row = await (await users()).findOne({ _id: id });
+			return row ? toUser(fromRow<UserDoc>(row)) : null;
+		},
+
+		async getUserByHandle(handle) {
+			// Handles are stored lowercase, and the index is unique on them.
+			const row = await (await users()).findOne({ handle: handle.toLowerCase() });
 			return row ? toUser(fromRow<UserDoc>(row)) : null;
 		},
 
@@ -269,7 +300,8 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		},
 
 		async listActivities(query = {}, viewer) {
-			const filter: Filter<ActivityRow> = {};
+			// The query form of isListed() in shared.ts. Keep the two in step.
+			const filter: Filter<ActivityRow> = { $or: visibleToClauses(viewer) };
 			const scope = campusScope(query, viewer);
 			if (scope) filter.campus = { $in: scope as ActivityRow['campus'][] };
 			if (query.category) filter.category = query.category;
@@ -285,7 +317,15 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		},
 
 		async getActivity(id, viewer) {
-			const row = await (await activities()).findOne({ _id: id });
+			// Private is unlisted but openable, so it's allowed here even though
+			// visibleToClauses() keeps it out of the feed. The student-only tiers
+			// are sealed and stay excluded.
+			const row = await (
+				await activities()
+			).findOne({
+				_id: id,
+				$or: [...visibleToClauses(viewer), { visibility: 'private' }]
+			});
 			return row ? view(row, viewer) : null;
 		},
 
@@ -300,7 +340,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			const isMember = Boolean(viewerId && activity?.memberIds.includes(viewerId));
 
 			const allowed = docs.filter((c) =>
-				canSeeComment(userMap.get(c.authorId), viewerId, isMember)
+				canSeeComment(c, userMap.get(c.authorId), viewerId, isMember)
 			);
 			return {
 				visible: allowed.map((c) => toCommentView(c, userMap)),
@@ -331,6 +371,8 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		async grassLeaderboard(limit = 10) {
 			return (await activities())
 				.aggregate<{ userId: string; score: number }>([
+					// Only what actually happened counts.
+					{ $match: { completedAt: { $exists: true, $ne: null } } },
 					{ $unwind: '$memberIds' },
 					{ $group: { _id: '$memberIds', score: { $sum: 1 } } },
 					{ $sort: { score: -1, _id: 1 } },
@@ -347,6 +389,53 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		},
 
 		/**
+		 * The spots floor is in the filter, not a read-then-write: someone
+		 * joining at the same moment must not end up outside the new capacity.
+		 */
+		async updateActivity(id, hostId, patch) {
+			const $set = activityUpdates(patch);
+			const col = await activities();
+
+			const capacity =
+				patch.spots === undefined
+					? {}
+					: { $expr: { $lte: [{ $size: '$memberIds' }, patch.spots] } };
+
+			const updated = await col.findOneAndUpdate(
+				{ _id: id, hostId, ...capacity },
+				{ $set },
+				{ returnDocument: 'after' }
+			);
+			if (updated) return { ok: true, activity: await view(updated, { id: hostId }) };
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'too-few-spots' };
+		},
+
+		async completeActivity(id, hostId, complete = true) {
+			const col = await activities();
+
+			// "Has it started?" belongs in the filter so the clock can't move
+			// between the read and the write.
+			const started = complete ? { startsAt: { $lte: new Date().toISOString() } } : {};
+			const update = complete
+				? { $set: { completedAt: new Date().toISOString() } }
+				: { $unset: { completedAt: '' as const } };
+
+			const updated = await col.findOneAndUpdate({ _id: id, hostId, ...started }, update, {
+				returnDocument: 'after'
+			});
+			if (updated) return { ok: true, activity: await view(updated, { id: hostId }) };
+
+			const current = await col.findOne({ _id: id });
+			if (!current) return { ok: false, reason: 'not-found' };
+			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
+			return { ok: false, reason: 'not-started' };
+		},
+
+		/**
 		 * ONE atomic update with the capacity check inside the filter. A plain
 		 * read-then-write lets two simultaneous joins both take the last spot.
 		 */
@@ -356,6 +445,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 				{
 					_id: id,
 					memberIds: { $ne: userId },
+					approvalRequired: { $ne: true },
 					$expr: { $lt: [{ $size: '$memberIds' }, '$spots'] }
 				},
 				{ $push: { memberIds: userId } },
@@ -367,6 +457,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			const current = await col.findOne({ _id: id });
 			if (!current) return { ok: false, reason: 'not-found' };
 			if (current.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
+			if (current.approvalRequired) return { ok: false, reason: 'needs-approval' };
 			return { ok: false, reason: 'full' };
 		},
 
@@ -385,7 +476,11 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return { ok: false, reason: 'not-a-member' };
 		},
 
-		/** Only joins the queue when it really is full — checked in the filter. */
+		/**
+		 * Only queues when the host actually has a say — they vet everyone, or
+		 * it's full. Checked in the filter so a spot opening up mid-request
+		 * doesn't leave someone waiting on a door that's already open.
+		 */
 		async joinWaitlist(id, userId) {
 			const col = await activities();
 			const updated = await col.findOneAndUpdate(
@@ -393,7 +488,10 @@ export function createMongoStore(uri: string, dbName: string): Store {
 					_id: id,
 					memberIds: { $ne: userId },
 					waitlistIds: { $ne: userId },
-					$expr: { $gte: [{ $size: '$memberIds' }, '$spots'] }
+					$or: [
+						{ approvalRequired: true },
+						{ $expr: { $gte: [{ $size: '$memberIds' }, '$spots'] } }
+					]
 				},
 				{ $push: { waitlistIds: userId } },
 				{ returnDocument: 'after' }
@@ -405,7 +503,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			if (current.memberIds.includes(userId)) return { ok: false, reason: 'already-joined' };
 			if ((current.waitlistIds ?? []).includes(userId))
 				return { ok: false, reason: 'already-waiting' };
-			return { ok: false, reason: 'not-full' };
+			return { ok: false, reason: 'open' };
 		},
 
 		async leaveWaitlist(id, userId) {
@@ -520,10 +618,10 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			);
 		},
 
-		async addComment(activityId, authorId, body) {
+		async addComment(activityId, authorId, body, visibility) {
 			const exists = await (await activities()).countDocuments({ _id: activityId }, { limit: 1 });
 			if (!exists) return null;
-			const doc = newCommentDoc(activityId, authorId, body);
+			const doc = newCommentDoc(activityId, authorId, body, visibility);
 			await (await comments()).insertOne(toRow(doc));
 			return toCommentView(doc, await usersFor([authorId]));
 		}

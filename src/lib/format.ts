@@ -11,7 +11,7 @@ export function formatCents(cents: number): string {
 	});
 }
 
-/** "$4 each" / "$40 total" — the price as it should read on a card. */
+/** "$4 each" / "$40 total": the price as it should read on a card. */
 export function formatPrice(cents: number, basis: CostBasis): string {
 	if (cents === 0) return 'Free';
 	return `${formatCents(cents)} ${basis === 'per-person' ? 'each' : 'total'}`;
@@ -25,6 +25,12 @@ export function formatPrice(cents: number, basis: CostBasis): string {
 export function perPersonCents(cents: number, basis: CostBasis, headcount: number): number {
 	if (basis === 'per-person') return cents;
 	return Math.ceil(cents / Math.max(1, headcount));
+}
+
+/** Integer cents -> what belongs in the "$" input: "12", "12.50", or "" for free. */
+export function centsToInput(cents: number): string {
+	if (cents === 0) return '';
+	return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
 }
 
 /** "2h ago", "3d ago" — Reddit's post-age stamp. */

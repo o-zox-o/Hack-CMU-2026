@@ -16,19 +16,30 @@ const TTL_MS = 15 * 60 * 1000;
 
 interface PendingSignup extends SignupInput {
 	exp: number;
+	/**
+	 * HMAC of the code we emailed, when we issued it ourselves. Absent means
+	 * Auth0 sent the code and only Auth0 can check it. Never the code itself.
+	 */
+	codeHash?: string;
+}
+
+/** What the verify step needs back: the signup, plus how to check the code. */
+export interface PendingSignupData {
+	input: SignupInput;
+	codeHash?: string;
 }
 
 function sign(payload: string): string {
 	return createHmac('sha256', SECRET).update(payload).digest('base64url');
 }
 
-function encode(input: SignupInput): string {
-	const payload: PendingSignup = { ...input, exp: Date.now() + TTL_MS };
+function encode(input: SignupInput, codeHash?: string): string {
+	const payload: PendingSignup = { ...input, codeHash, exp: Date.now() + TTL_MS };
 	const json = Buffer.from(JSON.stringify(payload)).toString('base64url');
 	return `${json}.${sign(json)}`;
 }
 
-function decode(token: string): SignupInput | null {
+function decode(token: string): PendingSignupData | null {
 	const dot = token.lastIndexOf('.');
 	if (dot < 1) return null;
 
@@ -41,15 +52,19 @@ function decode(token: string): SignupInput | null {
 		const payload: PendingSignup = JSON.parse(Buffer.from(json, 'base64url').toString());
 		if (payload.exp < Date.now()) return null;
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		const { exp, ...input } = payload;
-		return input;
+		const { exp, codeHash, ...input } = payload;
+		return { input, codeHash };
 	} catch {
 		return null;
 	}
 }
 
-export function setPendingSignupCookie(cookies: Cookies, input: SignupInput): void {
-	cookies.set(PENDING_SIGNUP_COOKIE, encode(input), {
+export function setPendingSignupCookie(
+	cookies: Cookies,
+	input: SignupInput,
+	codeHash?: string
+): void {
+	cookies.set(PENDING_SIGNUP_COOKIE, encode(input, codeHash), {
 		path: '/login',
 		httpOnly: true,
 		sameSite: 'lax',
@@ -58,7 +73,7 @@ export function setPendingSignupCookie(cookies: Cookies, input: SignupInput): vo
 	});
 }
 
-export function readPendingSignupCookie(cookies: Cookies): SignupInput | null {
+export function readPendingSignupCookie(cookies: Cookies): PendingSignupData | null {
 	const token = cookies.get(PENDING_SIGNUP_COOKIE);
 	return token ? decode(token) : null;
 }

@@ -7,13 +7,14 @@
 		Car,
 		Check,
 		Clock,
+		Coins,
 		Compass,
 		Crown,
-		DollarSign,
 		Gift,
 		Headphones,
 		House,
 		Leaf,
+		Lock,
 		LogOut,
 		MapPin,
 		Menu,
@@ -22,6 +23,7 @@
 		MessageSquare,
 		Package,
 		PartyPopper,
+		Pencil,
 		Plus,
 		Search,
 		ShoppingCart,
@@ -34,6 +36,7 @@
 		User,
 		Users,
 		UtensilsCrossed,
+		Volleyball,
 		WashingMachine,
 		X
 	} from '@lucide/svelte';
@@ -49,7 +52,7 @@
 		pin: MapPin,
 		users: Users,
 		comment: MessageSquare,
-		dollar: DollarSign,
+		dollar: Coins,
 		calendar: Calendar,
 		myActivities: CalendarCheck,
 		arrowUp: ArrowUp,
@@ -62,6 +65,8 @@
 		exit: LogOut,
 		sliders: SlidersHorizontal,
 		gift: Gift,
+		lock: Lock,
+		pencil: Pencil,
 		sprout: Sprout,
 		sparkles: Sparkles,
 		trophy: Trophy,
@@ -78,6 +83,7 @@
 		food: UtensilsCrossed,
 		supplies: Package,
 		errands: WashingMachine,
+		sports: Volleyball,
 		other: Sparkles
 	} as const;
 

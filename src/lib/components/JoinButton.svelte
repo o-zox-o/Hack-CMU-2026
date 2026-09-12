@@ -36,10 +36,14 @@
 
 	const refresh = submit();
 	const joinAndCelebrate = submit(() =>
-		celebration.start("Congrats — you touched grass! That's one more blade.")
+		celebration.start("Congrats, you touched grass! That's one more blade.")
 	);
 
 	let width = $derived(block ? 'w-full' : '');
+
+	/* Two ways a join becomes a request: the host vets everyone, or it's full.
+	   The wording differs — one is "ask", the other is "queue". */
+	let vetted = $derived(activity.approvalRequired);
 </script>
 
 {#if activity.isHost}
@@ -62,13 +66,22 @@
 			disabled={busy}
 			title="Withdraw your request"
 		>
-			<Icon name="clock" size={14} /> Waitlisted
+			<Icon name="clock" size={14} />
+			{vetted ? 'Asked to join' : 'Waitlisted'}
 		</button>
 	</form>
-{:else if activity.isFull}
+{:else if vetted || activity.isFull}
 	<form method="POST" action="/activities/{activity.id}?/requestSpot" use:enhance={refresh}>
-		<button type="submit" class="btn btn-ghost {width}" disabled={busy}>
-			<Icon name="clock" size={14} /> Add to waitlist
+		<button
+			type="submit"
+			class="btn {vetted ? 'btn-primary' : 'btn-ghost'} {width}"
+			disabled={busy}
+			title={vetted
+				? 'The host approves everyone who joins'
+				: 'The host will let you know if a spot opens up'}
+		>
+			<Icon name={vetted ? 'lock' : 'clock'} size={14} />
+			{vetted ? 'Request to join' : 'Add to waitlist'}
 		</button>
 	</form>
 {:else}

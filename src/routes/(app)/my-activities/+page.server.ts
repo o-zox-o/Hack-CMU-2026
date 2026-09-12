@@ -1,16 +1,13 @@
 import type { PageServerLoad } from './$types';
 import { isPast } from '$lib/format';
 import { activitiesHostedBy, activitiesJoinedBy } from '$lib/server/db';
+import { viewerFrom } from '$lib/server/viewer';
 
 const FILTERS = ['all', 'hosting', 'joined'] as const;
 export type MyFilter = (typeof FILTERS)[number];
 
 export const load = (async ({ locals, url }) => {
-	const viewer = {
-		id: locals.user.id,
-		location: locals.location,
-		interests: locals.interests
-	};
+	const viewer = viewerFrom(locals);
 
 	const [hosting, joined] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
