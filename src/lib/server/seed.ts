@@ -18,7 +18,7 @@ export interface SeedData {
 	comments: Comment[];
 }
 
-/** Password for every seeded account — shown on the login page in dev. */
+/** Password for every seeded account shown on the login page in dev. */
 export const DEMO_PASSWORD = 'tagalong';
 
 /** Minutes/hours/days from "now", so seed data never goes stale. */
@@ -155,12 +155,12 @@ export function seedData(): SeedData {
 	const activities: Activity[] = [
 		{
 			id: 'a_spotify',
-			title: 'Spotify Duo — 1 slot left, $6/mo',
+			title: 'Spotify Duo 1 slot left, $6/mo',
 			body: "Family plan, 4 of us on it already. Need one more to bring everyone's share down. Venmo monthly, I'll add you the same day. Must be able to set your address to Pittsburgh.",
 			category: 'subscriptions',
 			campus: 'cmu',
 			hostId: 'u_satsuki',
-			location: 'Online — Venmo @satsuki',
+			location: 'Online Venmo @satsuki',
 			startsAt: hoursFromNow(48),
 			spots: 6,
 			memberIds: ['u_satsuki', 'u_nori', 'u_mei', 'u_theo', 'u_lin'],
@@ -171,7 +171,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_costco',
-			title: 'Costco run Saturday — I drive, we split gas + membership',
+			title: 'Costco run Saturday I drive, we split gas + membership',
 			body: 'Heading out ~10am Saturday, back by 1. Room for 3. Split is gas ($12ish) plus $5 each toward my membership. Bring your own bags, we are not paying for boxes again.',
 			category: 'groceries',
 			campus: 'cmu',
@@ -187,7 +187,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_airport',
-			title: 'PIT airport Uber — Friday 6am, splitting 4 ways',
+			title: 'PIT airport Uber Friday 6am, splitting 4 ways',
 			body: "Flight is at 8:40 so I'm leaving at 6 sharp. UberXL from Oakland is about $52, which is $13 each if we fill it. I'll book and you Venmo me at the curb.",
 			category: 'rides',
 			campus: 'pitt',
@@ -203,7 +203,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_ikea',
-			title: 'IKEA Robinson haul — need 2 more for the car',
+			title: 'IKEA Robinson haul need 2 more for the car',
 			body: "Getting a desk and a shelf, there's room for two people and their flat-packs. Leaving Sunday noon. Gas split only, no charge for the trunk space.",
 			category: 'supplies',
 			campus: 'pitt',
@@ -235,7 +235,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_giant_eagle',
-			title: 'Weekly Giant Eagle walk — produce split',
+			title: 'Weekly Giant Eagle walk produce split',
 			body: 'Every Tuesday. We buy the big bags of produce and divide them up on the walk back. Way cheaper than buying singles and nothing rots before you eat it.',
 			category: 'groceries',
 			campus: 'cmu',
@@ -284,7 +284,7 @@ export function seedData(): SeedData {
 		{
 			id: 'a_textbook',
 			title: 'Splitting the 21-241 textbook rental',
-			body: 'Rental is $60 for the semester. Two of us can share — I need it Mon/Wed, you take it Tue/Thu/weekend. Has worked fine for me twice now.',
+			body: 'Rental is $60 for the semester. Two of us can share I need it Mon/Wed, you take it Tue/Thu/weekend. Has worked fine for me twice now.',
 			category: 'supplies',
 			campus: 'cmu',
 			hostId: 'u_nori',
@@ -299,7 +299,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_farmers',
-			title: 'Squirrel Hill farmers market — bulk eggs & bread',
+			title: 'Squirrel Hill farmers market bulk eggs & bread',
 			body: 'The stands do way better prices by the dozen/loaf if you buy a lot. Four of us clears the bulk tier easily. Sunday morning, walkable from campus.',
 			category: 'groceries',
 			campus: 'cmu',
@@ -315,7 +315,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_free_pizza',
-			title: 'Free pizza — leftovers from the SCS town hall',
+			title: 'Free pizza leftovers from the SCS town hall',
 			body: 'Six untouched boxes in the Gates 6th floor kitchen. First come first served. Bring a container if you want to take slices back.',
 			category: 'food',
 			campus: 'cmu',
@@ -363,7 +363,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_wvu_sams',
-			title: "Sam's Club run Sunday — Morgantown",
+			title: "Sam's Club run Sunday Morgantown",
 			body: 'I have the membership and a truck. Three seats, split gas, bring your list. Back by 3.',
 			category: 'groceries',
 			campus: 'wvu',
@@ -379,7 +379,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_karaoke',
-			title: 'Karaoke in Shadyside Friday — room fits 6',
+			title: 'Karaoke in Shadyside Friday room fits 6',
 			body: "Booked a room 9pm–11pm, it's $60 split however many show up. No talent required, we are all terrible.",
 			category: 'hangouts',
 			campus: 'cmu',
@@ -396,7 +396,7 @@ export function seedData(): SeedData {
 		{
 			id: 'a_frick_hike',
 			title: 'Easy Frick Park loop Sunday morning',
-			body: 'About 4 miles, casual pace, back by noon. Free — just show up. Dogs welcome.',
+			body: 'About 4 miles, casual pace, back by noon. Free just show up. Dogs welcome.',
 			category: 'hangouts',
 			campus: 'pitt',
 			hostId: 'u_kanta',
@@ -411,7 +411,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_study_hunt',
-			title: 'Finals grind at Hunt — 3rd floor, all day Saturday',
+			title: 'Finals grind at Hunt 3rd floor, all day Saturday',
 			body: 'Claiming the big table at 10am. Come and go as you like, we take a coffee run every couple of hours.',
 			category: 'hangouts',
 			campus: 'cmu',
@@ -427,7 +427,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_nyc_weekend',
-			title: 'NYC weekend trip — museums + food',
+			title: 'NYC weekend trip museums + food',
 			body: 'Going to NYC for the weekend and looking for a few people to explore museums, try restaurants, and split transportation.',
 			category: 'hangouts',
 			campus: 'cmu',
@@ -491,7 +491,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_concert',
-			title: 'Concert downtown — split ride',
+			title: 'Concert downtown split ride',
 			body: 'Going to a concert downtown and would love a group to go together and split the ride back.',
 			category: 'rides',
 			campus: 'duquesne',
@@ -524,7 +524,7 @@ export function seedData(): SeedData {
 		{
 			id: 'a_rock_climbing',
 			title: 'Beginner rock climbing',
-			body: 'Going climbing this weekend. Totally fine if you have never climbed before — looking for a few people to go together.',
+			body: 'Going climbing this weekend. Totally fine if you have never climbed before looking for a few people to go together.',
 			category: 'hangouts',
 			campus: 'pitt',
 			hostId: 'u_pria',
@@ -747,7 +747,7 @@ export function seedData(): SeedData {
 		},
 		{
 			id: 'a_escape_room',
-			title: 'Escape room — need 3 more people',
+			title: 'Escape room need 3 more people',
 			body: 'Group rate gets much cheaper with six people. Looking for people who like puzzles.',
 			category: 'hangouts',
 			campus: 'cmu',

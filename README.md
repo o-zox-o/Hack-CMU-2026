@@ -1,6 +1,6 @@
 # tagalong
 
-Post the thing you were going to do anyway — a Costco run, an airport Uber, a Spotify family plan — and let people on your campus tag along and split the cost.
+Post the thing you were going to do anyway: a Costco run, an airport Uber, a Spotify family plan, and let people on your campus tag along and split the cost.
 
 SvelteKit 2 · Svelte 5 (runes) · Tailwind 4 · TypeScript. Hack CMU 2026.
 
