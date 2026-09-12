@@ -166,16 +166,18 @@ export function isCampusId(value: unknown): value is CampusId {
 /* -------------------------------------------------------------------------- */
 
 /** Public shape — safe to put in a page payload or show to other users. */
-export interface User {
-	id: string;
-	name: string;
-	handle: string;
-	campus: CampusId;
-	bio: string;
-	/** Index into the avatar palette — keeps seeded users visually distinct. */
-	avatarSeed: number;
-	joinedAt: string;
-}
+export type User = {
+  id: string;
+  auth0Id: string;
+  name: string;
+  email: string;
+  university: string;
+  gender: string;
+  interests: string[];
+  age: number;
+  location: string;
+};
+
 
 /**
  * Stored shape — the `users` collection. Server-only. `toUser()` in db.ts
@@ -202,26 +204,21 @@ export interface SignupInput {
 export type CostBasis = 'per-person' | 'total';
 
 /** Stored shape. Server-only — never hand this straight to a page. */
-export interface Activity {
-	id: string;
-	title: string;
-	body: string;
-	category: CategoryId;
-	campus: CampusId;
-	hostId: string;
-	/** Free-text meeting point, e.g. "Giant Eagle, Shadyside". */
-	location: string;
-	/** ISO 8601. */
-	startsAt: string;
-	/** Total headcount including the host. */
-	spots: number;
-	/** Everyone in, host first. Length must never exceed `spots`. */
-	memberIds: string[];
-	/** Integer cents. NEVER a float — money math on floats drifts. */
-	costCents: number;
-	costBasis: CostBasis;
-	createdAt: string;
-}
+export type Activity = {
+  id: string;
+  ownerId: string;
+  title: string;
+  destination: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  budget: number;
+  interests: string[];
+
+  memberIds: string[];
+  maxMembers?: number;
+};
+
 
 /** Wire/UI shape. Safe to serialise into a page payload. */
 export interface ActivityView {
