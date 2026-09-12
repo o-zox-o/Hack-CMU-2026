@@ -14,7 +14,6 @@ SvelteKit · Svelte 5 · Tailwind 4 · TypeScript · MongoDB
 
 ### Demo login
 
-| | |
 |---|---|
 | Email | `mei@andrew.cmu.edu` |
 | Password | `tagalong` |
@@ -49,7 +48,6 @@ College group chats are how people make plans *and* how they never make it out. 
 
 ## Touch grass (gamification)
 
-| | |
 |---|---|
 | Score | Hosted + joined activities |
 | Garden | Grows from bare patch -> seedling -> sprouting -> lawn -> in bloom -> wildflower meadow |
