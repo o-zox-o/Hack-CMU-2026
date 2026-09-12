@@ -64,6 +64,30 @@
 		</div>
 	</section>
 
+	{#if data.standing.warned}
+		<div class="rounded-card border border-berry-500 bg-berry-500/10 p-4">
+			<h2 class="flex items-center gap-1.5 text-fluid-sm font-extrabold text-berry-500">
+				<Icon name="close" size={15} strokeWidth={3} /> Your account has a warning
+			</h2>
+			<p class="mt-1 text-fluid-sm text-ink-soft">
+				{data.standing.poorlyRated} of your activities were rated poorly by the people who went. Ratings
+				are anonymous, so there's nobody to take it up with — but showing up, being on time and charging
+				what you said you would is usually the whole of it. Keep it up and hosting may be limited.
+			</p>
+		</div>
+	{:else if data.standing.average !== null}
+		<div class="leaf-card flex flex-wrap items-baseline gap-x-2 px-4 py-2.5">
+			<span class="text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
+				As a host
+			</span>
+			<span class="text-fluid-sm font-extrabold text-ink">{data.standing.average} / 5</span>
+			<span class="text-fluid-xs text-ink-muted">
+				across {data.standing.ratedActivities}
+				{data.standing.ratedActivities === 1 ? 'rated activity' : 'rated activities'}
+			</span>
+		</div>
+	{/if}
+
 	<!-- Touch grass: the score, the garden it grows, and what it earned -->
 	<section class="leaf-card p-4 sm:p-5">
 		<div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">

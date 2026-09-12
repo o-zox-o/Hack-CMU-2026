@@ -13,10 +13,20 @@ import { MongoClient, type Collection, type Db, type Filter } from 'mongodb';
 import { verifyPassword } from '../auth';
 import { learnedInterests } from '$lib/matching';
 import { seedData } from '../seed';
-import type { Activity, Comment, User, UserDoc } from '$lib/types';
+import {
+	MAX_SCORE,
+	MIN_SCORE,
+	type Activity,
+	type Comment,
+	type Rating,
+	type User,
+	type UserDoc
+} from '$lib/types';
 import {
 	campusScope,
 	canSeeComment,
+	hostStandingFrom,
+	ratingSummary,
 	handleBase,
 	newActivityDoc,
 	newCommentDoc,
@@ -34,6 +44,7 @@ type Row<T extends { id: string }> = Omit<T, 'id'> & { _id: string };
 type UserRow = Row<UserDoc>;
 type ActivityRow = Row<Activity>;
 type CommentRow = Row<Comment>;
+type RatingRow = Row<Rating>;
 
 const toRow = <T extends { id: string }>({ id, ...rest }: T): Row<T> => ({ _id: id, ...rest });
 const fromRow = <T extends { id: string }>({ _id, ...rest }: Row<T>): T =>
@@ -53,7 +64,11 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		db.collection<UserRow>('users').createIndex({ handle: 1 }, { unique: true }),
 		db.collection<ActivityRow>('activities').createIndex({ campus: 1, startsAt: 1 }),
 		db.collection<ActivityRow>('activities').createIndex({ memberIds: 1 }),
-		db.collection<CommentRow>('comments').createIndex({ activityId: 1, createdAt: 1 })
+		db.collection<CommentRow>('comments').createIndex({ activityId: 1, createdAt: 1 }),
+		db
+			.collection<RatingRow>('ratings')
+			.createIndex({ activityId: 1, raterId: 1 }, { unique: true }),
+		db.collection<RatingRow>('ratings').createIndex({ hostId: 1 })
 	]);
 
 	// Seed per collection, not all-or-nothing: a database that already has real
@@ -117,6 +132,7 @@ export function createMongoStore(uri: string, dbName: string): Store {
 	const activities = async (): Promise<Collection<ActivityRow>> =>
 		(await db()).collection('activities');
 	const comments = async (): Promise<Collection<CommentRow>> => (await db()).collection('comments');
+	const ratings = async (): Promise<Collection<RatingRow>> => (await db()).collection('ratings');
 
 	/* One query for every user a batch of activities refers to. */
 	const usersFor = async (ids: string[]): Promise<Map<string, User>> => {
@@ -141,11 +157,32 @@ export function createMongoStore(uri: string, dbName: string): Store {
 
 	const views = async (rows: ActivityRow[], viewer?: Viewer) => {
 		const docs = rows.map((r) => fromRow<Activity>(r));
-		const [userMap, counts] = await Promise.all([
+		const ids = docs.map((a) => a.id);
+
+		const [userMap, counts, ratingRows] = await Promise.all([
 			usersFor(referencedUserIds(docs)),
-			commentCounts(docs.map((a) => a.id))
+			commentCounts(ids),
+			(await ratings())
+				.find({ activityId: { $in: ids } }, { projection: { activityId: 1, raterId: 1, score: 1 } })
+				.toArray()
 		]);
-		return docs.map((a) => toView(a, userMap, counts.get(a.id) ?? 0, viewer));
+
+		const scores = new Map<string, number[]>();
+		const mine = new Set<string>();
+		for (const r of ratingRows) {
+			(scores.get(r.activityId) ?? scores.set(r.activityId, []).get(r.activityId)!).push(r.score);
+			if (viewer?.id && r.raterId === viewer.id) mine.add(r.activityId);
+		}
+
+		return docs.map((a) =>
+			toView(
+				a,
+				userMap,
+				counts.get(a.id) ?? 0,
+				viewer,
+				ratingSummary(scores.get(a.id) ?? [], a, viewer?.id, mine.has(a.id))
+			)
+		);
 	};
 	const view = async (row: ActivityRow, viewer?: Viewer) => (await views([row], viewer))[0];
 
@@ -433,6 +470,54 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			if (!current) return { ok: false, reason: 'not-found' };
 			if (current.hostId !== hostId) return { ok: false, reason: 'not-host' };
 			return { ok: false, reason: 'not-waiting' };
+		},
+
+		async rateActivity(activityId, raterId, score) {
+			if (!Number.isInteger(score) || score < MIN_SCORE || score > MAX_SCORE) {
+				return { ok: false, reason: 'bad-score' };
+			}
+
+			const activity = await (await activities()).findOne({ _id: activityId });
+			if (!activity) return { ok: false, reason: 'not-found' };
+			if (!activity.memberIds.includes(raterId)) return { ok: false, reason: 'not-attended' };
+			if (new Date(activity.startsAt).getTime() > Date.now())
+				return { ok: false, reason: 'not-yet' };
+
+			// One rating per person per activity — the unique index is what
+			// actually enforces it, so two taps can't both land.
+			const doc: Rating = {
+				id: `r_${crypto.randomUUID().slice(0, 8)}`,
+				activityId,
+				hostId: activity.hostId,
+				raterId,
+				score,
+				createdAt: new Date().toISOString()
+			};
+			try {
+				await (await ratings()).insertOne(toRow(doc));
+			} catch (err) {
+				if ((err as { code?: number }).code === 11000) {
+					return { ok: false, reason: 'already-rated' };
+				}
+				throw err;
+			}
+			return { ok: true };
+		},
+
+		async hostStanding(hostId) {
+			const [hosted, perActivity] = await Promise.all([
+				(await activities()).countDocuments({ hostId }),
+				(await ratings())
+					.aggregate<{ _id: string; average: number }>([
+						{ $match: { hostId } },
+						{ $group: { _id: '$activityId', average: { $avg: '$score' } } }
+					])
+					.toArray()
+			]);
+			return hostStandingFrom(
+				hosted,
+				perActivity.map((r) => r.average)
+			);
 		},
 
 		async addComment(activityId, authorId, body) {

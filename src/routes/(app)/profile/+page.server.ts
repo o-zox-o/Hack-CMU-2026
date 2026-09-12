@@ -5,6 +5,7 @@ import {
 	activitiesHostedBy,
 	activitiesJoinedBy,
 	grassLeaderboard,
+	hostStanding,
 	updateProfile
 } from '$lib/server/db';
 import { isInterest } from '$lib/types';
@@ -15,10 +16,11 @@ export const load = (async ({ locals }) => {
 		location: locals.location,
 		interests: locals.interests
 	};
-	const [hosting, joined, leaderboard] = await Promise.all([
+	const [hosting, joined, leaderboard, standing] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
 		activitiesJoinedBy(locals.user.id, viewer),
-		grassLeaderboard(1)
+		grassLeaderboard(1),
+		hostStanding(locals.user.id)
 	]);
 
 	// Learned interests are server-side only, so the page has to be told.
@@ -28,6 +30,7 @@ export const load = (async ({ locals }) => {
 		hosting,
 		joined,
 		learned,
+		standing,
 		/** Nobody tops an empty board, so a 0-score leader doesn't count. */
 		isTopToucher: leaderboard[0]?.userId === locals.user.id && leaderboard[0].score > 0
 	};

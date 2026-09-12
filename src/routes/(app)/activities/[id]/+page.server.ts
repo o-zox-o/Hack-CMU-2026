@@ -10,6 +10,7 @@ import {
 	leaveActivity,
 	leaveWaitlist,
 	listComments,
+	rateActivity,
 	refreshLearnedInterests
 } from '$lib/server/db';
 import {
@@ -47,6 +48,14 @@ const APPROVAL_MESSAGES = {
 	'not-found': 'That activity is gone.',
 	'not-host': 'Only the host can do that.',
 	'not-waiting': 'They are no longer waiting.'
+} as const;
+
+const RATE_MESSAGES = {
+	'not-found': 'That activity is gone.',
+	'not-attended': 'Only people who went can rate it.',
+	'not-yet': "It hasn't happened yet.",
+	'already-rated': 'You already rated this one.',
+	'bad-score': 'Pick between 1 and 5.'
 } as const;
 
 const LEAVE_MESSAGES = {
@@ -115,6 +124,15 @@ export const actions = {
 			String(form.get('userId') ?? '')
 		);
 		if (!result.ok) return fail(409, { message: APPROVAL_MESSAGES[result.reason] });
+		return { message: null };
+	},
+
+	/** Anonymous — the score is stored against the activity, not shown per person. */
+	rate: async ({ request, params, locals }) => {
+		const form = await request.formData();
+		const result = await rateActivity(params.id, locals.user.id, Number(form.get('score')));
+
+		if (!result.ok) return fail(409, { message: RATE_MESSAGES[result.reason] });
 		return { message: null };
 	},
 

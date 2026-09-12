@@ -54,5 +54,7 @@ export const {
 	leaveWaitlist,
 	approveWaitlist,
 	declineWaitlist,
-	addComment
+	addComment,
+	rateActivity,
+	hostStanding
 } = store;
