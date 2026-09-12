@@ -387,7 +387,7 @@ export function seedData(): SeedData {
 			interests: ['groceries', 'bulk buys', 'driving'],
 			createdAt: hoursAgo(12)
 		},
-<<<<<<< Updated upstream
+
 		{
 			id: 'a_karaoke',
 			title: 'Karaoke in Shadyside Friday — room fits 6',
@@ -435,8 +435,7 @@ export function seedData(): SeedData {
 			costBasis: 'per-person',
 			interests: ['studying', 'coffee'],
 			createdAt: hoursAgo(8)
-		}
-=======
+		},
 	{
 		id: 'a_nyc_weekend',
 		title: 'NYC weekend trip — museums + food',
@@ -949,7 +948,7 @@ export function seedData(): SeedData {
 		createdAt: hoursAgo(2),
 		interests: ['wellness', 'mental health', 'walking', 'tea', 'relaxation']
 	}
->>>>>>> Stashed changes
+
 	];
 
 	const comments: Comment[] = [
