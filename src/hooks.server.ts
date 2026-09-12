@@ -41,6 +41,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.location = campusLocation(user.campus);
 		event.locals.locationSource = 'campus';
 	}
+	const cookieId = event.cookies.get('demo_user');
+
+	let user = cookieId ? await getUser(cookieId) : null;
+
+	if (!user) {
+		user = await getUser(DEMO_USER_ID);
+	}
+
+	if (!user) {
+		const users = await listUsers();
+		user = users[0] ?? null;
+	}
+
+	if (!user) {
+		throw new Error('No users found in database');
+	}
+
+	event.locals.user = user;
 
 	return resolve(event);
 };
