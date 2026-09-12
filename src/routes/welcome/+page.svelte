@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Icon from '$lib/components/Icon.svelte';
+	import GrassIcon from '$lib/components/GrassIcon.svelte';
 	import InterestPicker from '$lib/components/InterestPicker.svelte';
 
 	let { data } = $props();
@@ -20,7 +21,7 @@
 		<span
 			class="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-on-brand"
 		>
-			<Icon name="leaf" size={22} strokeWidth={2.25} />
+			<GrassIcon size={22} strokeWidth={2.25} />
 		</span>
 		<h1 class="text-fluid-2xl font-extrabold text-ink">You're in. One quick thing.</h1>
 		<p class="mt-1 text-fluid-base text-ink-soft">

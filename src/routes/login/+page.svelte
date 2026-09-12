@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Icon from '$lib/components/Icon.svelte';
+	import GrassIcon from '$lib/components/GrassIcon.svelte';
 	import { CAMPUSES } from '$lib/types';
 	import type { AuthErrors } from '$lib/validate';
 
@@ -48,7 +48,7 @@
 		<span
 			class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-on-brand"
 		>
-			<Icon name="leaf" size={22} strokeWidth={2.25} />
+			<GrassIcon size={22} strokeWidth={2.25} />
 		</span>
 		<span class="text-fluid-2xl font-extrabold tracking-tight text-ink">tagalong</span>
 	</a>

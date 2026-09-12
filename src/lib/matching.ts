@@ -122,3 +122,99 @@ export function matchPercent(viewer: MatchViewer, target: MatchTarget): number |
 	if (!onTags && !onCategory) return null;
 	return Math.round(relevance(viewer, target) * 100);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Discovery                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** Deterministic shuffle — same seed, same order, so a page doesn't reshuffle. */
+export function seededShuffle<T>(items: T[], seed: string): T[] {
+	let h = 2166136261;
+	for (let i = 0; i < seed.length; i++) {
+		h ^= seed.charCodeAt(i);
+		h = Math.imul(h, 16777619);
+	}
+	const next = () => {
+		h += 0x6d2b79f5;
+		let t = h;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+
+	const out = [...items];
+	for (let i = out.length - 1; i > 0; i--) {
+		const j = Math.floor(next() * (i + 1));
+		[out[i], out[j]] = [out[j], out[i]];
+	}
+	return out;
+}
+
+export const WILDCARD_EVERY = 3;
+
+/**
+ * Slip something unexpected into a ranked feed: after every few good matches,
+ * one drawn at random from further down. A feed that only ever agrees with you
+ * stops showing you anything new — and the whole point is getting people out to
+ * things they wouldn't have gone looking for.
+ *
+ * Returns the interleaved list plus the ids that were injected, so the caller
+ * can mark them for the UI.
+ */
+export function interleaveWildcards<T extends { id: string }>(
+	ranked: T[],
+	seed: string,
+	every = WILDCARD_EVERY
+): { items: T[]; wildcardIds: Set<string> } {
+	// Only the tail is wildcard material — the top is what they actually want.
+	const keepTop = Math.max(every, Math.ceil(ranked.length / 3));
+	const head = ranked.slice(0, keepTop);
+	const tail = seededShuffle(ranked.slice(keepTop), seed);
+
+	if (tail.length === 0) return { items: ranked, wildcardIds: new Set() };
+
+	const items: T[] = [];
+	const wildcardIds = new Set<string>();
+	let t = 0;
+
+	for (let i = 0; i < head.length; i++) {
+		items.push(head[i]);
+		if ((i + 1) % every === 0 && t < tail.length) {
+			items.push(tail[t]);
+			wildcardIds.add(tail[t].id);
+			t++;
+		}
+	}
+
+	// Whatever is left keeps its ranked order underneath.
+	items.push(...tail.slice(t));
+	return { items, wildcardIds };
+}
+
+/** How many joins in one category before it counts as a real interest. */
+export const LEARN_THRESHOLD = 3;
+
+/**
+ * Interests inferred from what someone actually joins. Three grocery runs and
+ * "groceries" is plainly a thing they do, whether or not they ticked it.
+ */
+export function learnedInterests(
+	categories: CategoryId[],
+	alreadyPicked: string[] = [],
+	threshold = LEARN_THRESHOLD
+): string[] {
+	const counts = new Map<CategoryId, number>();
+	for (const c of categories) counts.set(c, (counts.get(c) ?? 0) + 1);
+
+	const picked = new Set(alreadyPicked.map((i) => i.toLowerCase()));
+	const learned = new Set<string>();
+
+	for (const [category, n] of counts) {
+		if (n < threshold) continue;
+		for (const tag of CATEGORY_INTERESTS[category] ?? []) {
+			if (!picked.has(tag)) learned.add(tag);
+		}
+	}
+
+	return [...learned];
+}
