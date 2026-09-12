@@ -1,3 +1,5 @@
+import { generateTags } from '$lib/server/ai';
+
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createActivity } from '$lib/server/db';
@@ -33,7 +35,16 @@ export const actions = {
 			return fail(400, { errors: result.errors, values });
 		}
 
-		const created = await createActivity(result.value, locals.user.id);
+		// 1. Generate tags with Gemini
+		const context = `Category: ${result.value.category}. Title: ${result.value.title}. Description: ${result.value.body}`;
+		const aiTags = await generateTags(context);
+
+		// 2. Add 'as any' to satisfy TypeScript without altering backend files
+		const created = await createActivity(
+			{ ...result.value, interests: aiTags } as any,
+			locals.user.id
+		);
+
 		redirect(303, `/activities/${created.id}`);
 	}
 } satisfies Actions;
