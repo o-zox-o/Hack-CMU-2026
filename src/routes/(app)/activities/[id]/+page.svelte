@@ -5,7 +5,14 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import JoinButton from '$lib/components/JoinButton.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
-	import { formatCents, formatPrice, formatWhen, perPersonCents, timeAgo } from '$lib/format';
+	import {
+		formatCents,
+		formatMiles,
+		formatPrice,
+		formatWhen,
+		perPersonCents,
+		timeAgo
+	} from '$lib/format';
 	import { campusMeta } from '$lib/types';
 
 	let { data, form } = $props();
@@ -51,6 +58,9 @@
 			<div class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-fluid-xs text-ink-muted">
 				<CategoryBadge category={activity.category} href="/?category={activity.category}" />
 				<span class="font-bold">{campus.label}</span>
+				{#if activity.distanceMiles !== null}
+					<span>{formatMiles(activity.distanceMiles)} away</span>
+				{/if}
 				<span aria-hidden="true">·</span>
 				<span class="inline-flex items-center gap-1">
 					<Avatar user={activity.host} size="sm" />

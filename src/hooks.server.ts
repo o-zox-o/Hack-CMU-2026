@@ -1,22 +1,41 @@
-import type { Handle } from '@sveltejs/kit';
-import { DEMO_USER_ID, getUser, listUsers } from '$lib/server/db';
+import { json, redirect, type Handle } from '@sveltejs/kit';
+import { readSessionToken, SESSION_COOKIE } from '$lib/server/auth';
+import { getUser } from '$lib/server/db';
+import { campusLocation, LOCATION_COOKIE, parseLatLng } from '$lib/geo';
 
-/**
- * Auth stub.
- *
- * Every request gets a signed-in user so the whole app is usable before auth
- * exists. A `demo_user` cookie lets you switch identity while building — handy
- * for testing "join" from a second account without a second browser:
- *
- *   document.cookie = 'demo_user=u_theo; path=/'
- *
- * REPLACE ME with a real session lookup (Auth0 etc). The only contract the rest
- * of the app relies on is that `locals.user` is set before any load or action
- * runs, so swapping this out touches exactly this file.
- */
 export const handle: Handle = async ({ event, resolve }) => {
-	const cookieId = event.cookies.get('demo_user');
-	event.locals.user = getUser(cookieId ?? '') ?? getUser(DEMO_USER_ID) ?? listUsers()[0];
+	const token = event.cookies.get(SESSION_COOKIE);
+	const userId = token ? readSessionToken(token) : null;
+	const user = userId ? await getUser(userId) : null;
+
+	const path = event.url.pathname;
+	const isLoginPage = path === '/login';
+
+	if (!user) {
+		if (path.startsWith('/api/')) {
+			return json({ error: 'unauthorized' }, { status: 401 });
+		}
+
+		if (!isLoginPage) {
+			const next = event.url.pathname + event.url.search;
+			redirect(303, next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`);
+		}
+	} else if (isLoginPage) {
+		redirect(303, '/');
+	}
+
+	// /login is the only page where user can be null.
+	event.locals.user = user!;
+
+	const gps = parseLatLng(event.cookies.get(LOCATION_COOKIE));
+
+	if (gps) {
+		event.locals.location = gps;
+		event.locals.locationSource = 'gps';
+	} else if (user) {
+		event.locals.location = campusLocation(user.campus);
+		event.locals.locationSource = 'campus';
+	}
 
 	return resolve(event);
 };

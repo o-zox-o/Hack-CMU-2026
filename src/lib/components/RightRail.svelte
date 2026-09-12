@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { campusMeta, type User } from '$lib/types';
+	import { formatMiles } from '$lib/format';
 	import Icon from './Icon.svelte';
+	import LocationSync from './LocationSync.svelte';
 
 	interface Props {
-		user: User;
-		/** Open (not full, upcoming) activities on the viewer's campus. */
-		openOnCampus: number;
+		/** Open (not full, upcoming) activities within the default radius. */
+		openNearby: number;
+		locationSource: 'gps' | 'campus';
+		nearest: { short: string; miles: number };
 	}
 
-	let { user, openOnCampus }: Props = $props();
-
-	let campus = $derived(campusMeta(user.campus));
+	let { openNearby, locationSource, nearest }: Props = $props();
 </script>
 
 <aside class="flex flex-col gap-4">
@@ -24,10 +24,17 @@
 			</p>
 			<dl class="mt-3 flex gap-5 text-fluid-xs">
 				<div>
-					<dd class="text-fluid-lg font-extrabold text-ink">{openOnCampus}</dd>
-					<dt class="text-ink-muted">open at {campus.short}</dt>
+					<dd class="text-fluid-lg font-extrabold text-ink">{openNearby}</dd>
+					<dt class="text-ink-muted">open near you</dt>
+				</div>
+				<div>
+					<dd class="text-fluid-lg font-extrabold text-ink">{nearest.short}</dd>
+					<dt class="text-ink-muted">closest · {formatMiles(nearest.miles)}</dt>
 				</div>
 			</dl>
+			<div class="mt-3">
+				<LocationSync source={locationSource} variant="button" />
+			</div>
 			<a href="/activities/new" class="btn btn-primary mt-4 w-full">
 				<Icon name="plus" size={14} strokeWidth={3} /> Post an activity
 			</a>

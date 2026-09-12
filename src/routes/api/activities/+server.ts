@@ -5,8 +5,9 @@ import { createActivity, listActivities } from '$lib/server/db';
 import { validateNewActivity } from '$lib/validate';
 
 /** GET /api/activities?category=&campus=&q=&sort= — same filters as the feed. */
-export const GET: RequestHandler = ({ url, locals }) => {
-	return json(listActivities(feedQueryFromUrl(url, locals.user.campus), locals.user.id));
+export const GET: RequestHandler = async ({ url, locals }) => {
+	const viewer = { id: locals.user.id, location: locals.location };
+	return json(await listActivities(feedQueryFromUrl(url), viewer));
 };
 
 /** POST /api/activities — JSON body with the same fields as the create form. */
@@ -25,5 +26,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const result = validateNewActivity(payload as Record<string, unknown>);
 	if (!result.ok) return json({ errors: result.errors }, { status: 400 });
 
-	return json(createActivity(result.value, locals.user.id), { status: 201 });
+	return json(await createActivity(result.value, locals.user.id), { status: 201 });
 };
