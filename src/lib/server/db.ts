@@ -62,6 +62,9 @@ export const {
 	approveWaitlist,
 	declineWaitlist,
 	addComment,
+	shareLocation,
+	stopSharing,
+	activityLocations,
 	rateActivity,
 	hostStanding
 } = store;

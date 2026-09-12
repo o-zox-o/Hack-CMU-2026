@@ -6,6 +6,7 @@ import type {
 	CommentVisibility,
 	GrassRank,
 	HostStanding,
+	LiveLocationView,
 	CommentView,
 	FeedQuery,
 	LatLng,
@@ -52,6 +53,9 @@ export type WaitlistResult =
 			ok: false;
 			reason: 'not-found' | 'open' | 'already-joined' | 'already-waiting' | 'not-waiting';
 	  };
+
+export type ShareResult =
+	{ ok: true } | { ok: false; reason: 'not-found' | 'not-a-member' | 'closed' | 'bad-position' };
 
 /** Only the host can say it happened, and only once it has started. */
 export type CompleteResult =
@@ -161,6 +165,16 @@ export interface Store {
 	hostStanding(hostId: string): Promise<HostStanding>;
 
 	/** `visibility` defaults to 'everyone'. */
+	/**
+	 * Put this member on the activity's map. Refuses anyone who isn't in it,
+	 * and refuses outside the sharing window.
+	 */
+	shareLocation(activityId: string, userId: string, lat: number, lng: number): Promise<ShareResult>;
+	/** Stop immediately, rather than waiting for the point to expire. */
+	stopSharing(activityId: string, userId: string): Promise<void>;
+	/** Everyone currently sharing. Members only; stale points are never returned. */
+	activityLocations(activityId: string, viewerId: string): Promise<LiveLocationView[]>;
+
 	addComment(
 		activityId: string,
 		authorId: string,

@@ -398,6 +398,9 @@ export interface ActivityView {
 	visibility: Visibility;
 	approvalRequired: boolean;
 	completedAt: string | null;
+	/** Members may share live location between these two moments. */
+	sharingOpen: boolean;
+	sharingClosesAt: string;
 	/** The host says it happened. This is what turns it into grass. */
 	isComplete: boolean;
 	/** Started, but the host hasn't confirmed it happened yet. */
@@ -423,6 +426,61 @@ export interface ActivityView {
 	isWildcard?: boolean;
 	rating: RatingSummary;
 	interests: string[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Live location                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Sharing where you are, so a group can actually find each other.
+ *
+ * Deliberately narrow. It is opt-in per activity, readable only by the people
+ * in that activity, and it switches itself off: the stored point expires after
+ * LOCATION_TTL_SECONDS, so closing the tab or losing signal ends the sharing
+ * without anyone having to remember to stop it. Not sharing is the resting
+ * state, and every failure mode falls back to it.
+ */
+export interface LiveLocation {
+	activityId: string;
+	userId: string;
+	lat: number;
+	lng: number;
+	/** Also what the database expires the row on. */
+	updatedAt: string;
+}
+
+/** What the map gets. Never a user id without the person attached. */
+export interface LiveLocationView {
+	user: User;
+	lat: number;
+	lng: number;
+	updatedAt: string;
+}
+
+/**
+ * How long a point survives without a refresh. The client re-posts well inside
+ * this, so a marker going stale means they really have stopped.
+ */
+export const LOCATION_TTL_SECONDS = 120;
+
+/** Sharing opens this long before the start time. */
+export const SHARE_OPENS_MINUTES_BEFORE = 30;
+/** And closes this long after it, since activities have no end time. */
+export const SHARE_CLOSES_HOURS_AFTER = 3;
+
+/** The window during which an activity's members may share and see locations. */
+export function sharingWindow(startsAt: string): { opens: number; closes: number } {
+	const start = new Date(startsAt).getTime();
+	return {
+		opens: start - SHARE_OPENS_MINUTES_BEFORE * 60_000,
+		closes: start + SHARE_CLOSES_HOURS_AFTER * 3_600_000
+	};
+}
+
+export function isSharingOpen(startsAt: string, now = Date.now()): boolean {
+	const { opens, closes } = sharingWindow(startsAt);
+	return now >= opens && now <= closes;
 }
 
 /* -------------------------------------------------------------------------- */

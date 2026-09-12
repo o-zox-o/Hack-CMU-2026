@@ -4,6 +4,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import JoinButton from '$lib/components/JoinButton.svelte';
+	import LiveLocationMap from '$lib/components/LiveLocationMap.svelte';
 	import RatingBox from '$lib/components/RatingBox.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
 	import VisibilityBadge from '$lib/components/VisibilityBadge.svelte';
@@ -239,6 +240,12 @@
 							{/if}
 						</p>
 					{/if}
+				</div>
+			{/if}
+
+			{#if activity.joined && activity.sharingOpen}
+				<div class="mt-4">
+					<LiveLocationMap {activity} />
 				</div>
 			{/if}
 

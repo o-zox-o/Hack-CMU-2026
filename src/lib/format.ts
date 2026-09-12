@@ -113,6 +113,11 @@ export function initials(name: string): string {
 	return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
 }
 
+/** "2:30 PM" — just the clock, for something happening today. */
+export function formatClock(iso: string): string {
+	return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 /**
  * Format a Date for `<input type="datetime-local">`, which wants local time
  * as "YYYY-MM-DDTHH:mm" with no zone suffix.
@@ -120,6 +125,17 @@ export function initials(name: string): string {
 export function toLocalInputValue(date: Date): string {
 	const pad = (n: number) => String(n).padStart(2, '0');
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * Distance when you're trying to find someone, not browse a feed. Metres up
+ * close, because "< 0.1 mi" is useless when you're both at the same rink.
+ */
+export function formatNearby(miles: number): string {
+	const metres = miles * 1609.34;
+	if (metres < 20) return 'right here';
+	if (metres < 950) return `${Math.round(metres / 10) * 10} m`;
+	return formatMiles(miles);
 }
 
 /** "0.4 mi", "12 mi", "1.2k mi". */

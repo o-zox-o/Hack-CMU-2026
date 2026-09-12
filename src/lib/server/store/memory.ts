@@ -9,9 +9,12 @@ import { verifyPassword } from '../auth';
 import { learnedInterests } from '$lib/matching';
 import { SEED_VERSION, seedData } from '../seed';
 import {
+	isSharingOpen,
+	LOCATION_TTL_SECONDS,
 	MAX_SCORE,
 	MIN_SCORE,
 	type Activity,
+	type LiveLocation,
 	type Comment,
 	type Rating,
 	type User,
@@ -21,6 +24,7 @@ import {
 	activityUpdates,
 	campusScope,
 	canOpenActivity,
+	fallbackUser,
 	canSeeComment,
 	hostStandingFrom,
 	isListed,
@@ -42,6 +46,8 @@ import type { Store, Viewer } from './types';
 interface MemoryState {
 	version: number;
 	ratings: Rating[];
+	/** Keyed "activityId:userId". Pruned on read, mirroring Mongo's TTL index. */
+	locations: Map<string, LiveLocation>;
 	users: Map<string, UserDoc>;
 	activities: Map<string, Activity>;
 	comments: Comment[];
@@ -56,6 +62,7 @@ function boot(): MemoryState {
 	return {
 		version: SEED_VERSION,
 		ratings: [],
+		locations: new Map(),
 		users: new Map(users.map((u) => [u.id, u])),
 		activities: new Map(activities.map((a) => [a.id, a])),
 		comments
@@ -368,6 +375,59 @@ export function createMemoryStore(): Store {
 				.filter((scores) => scores.length > 0)
 				.map((scores) => scores.reduce((x, y) => x + y, 0) / scores.length);
 			return hostStandingFrom(hosted.length, averages);
+		},
+
+		async shareLocation(activityId, userId, lat, lng) {
+			if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+				return { ok: false, reason: 'bad-position' };
+			}
+			if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+				return { ok: false, reason: 'bad-position' };
+			}
+
+			const a = state.activities.get(activityId);
+			if (!a) return { ok: false, reason: 'not-found' };
+			if (!a.memberIds.includes(userId)) return { ok: false, reason: 'not-a-member' };
+			if (!isSharingOpen(a.startsAt)) return { ok: false, reason: 'closed' };
+
+			state.locations.set(`${activityId}:${userId}`, {
+				activityId,
+				userId,
+				lat,
+				lng,
+				updatedAt: new Date().toISOString()
+			});
+			return { ok: true };
+		},
+
+		async stopSharing(activityId, userId) {
+			state.locations.delete(`${activityId}:${userId}`);
+		},
+
+		async activityLocations(activityId, viewerId) {
+			const a = state.activities.get(activityId);
+			if (!a || !a.memberIds.includes(viewerId)) return [];
+
+			// Mongo has a TTL index; here the same rule is applied on read, and
+			// expired rows are dropped so the map can't be stale either way.
+			const cutoff = Date.now() - LOCATION_TTL_SECONDS * 1000;
+			const live: LiveLocation[] = [];
+			for (const [key, row] of state.locations) {
+				if (row.activityId !== activityId) continue;
+				if (new Date(row.updatedAt).getTime() < cutoff) {
+					state.locations.delete(key);
+					continue;
+				}
+				live.push(row);
+			}
+
+			const users = usersFor(live.map((r) => r.userId));
+			return live.map((r) => ({
+				user: users.get(r.userId) ?? fallbackUser(r.userId),
+				lat: r.lat,
+				lng: r.lng,
+				updatedAt: r.updatedAt
+			}));
 		},
 
 		async addComment(activityId, authorId, body, visibility) {

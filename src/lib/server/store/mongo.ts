@@ -14,7 +14,9 @@ import { verifyPassword } from '../auth';
 import { learnedInterests } from '$lib/matching';
 import { seedData } from '../seed';
 import {
+	isSharingOpen,
 	isStudent,
+	LOCATION_TTL_SECONDS,
 	MAX_SCORE,
 	MIN_SCORE,
 	type Activity,
@@ -28,6 +30,7 @@ import {
 	activityUpdates,
 	campusScope,
 	canSeeComment,
+	fallbackUser,
 	hostStandingFrom,
 	ratingSummary,
 	handleBase,
@@ -49,6 +52,15 @@ type UserRow = Row<UserDoc>;
 type ActivityRow = Row<Activity>;
 type CommentRow = Row<Comment>;
 type RatingRow = Row<Rating>;
+/* Not a Row<>: it has no id of its own, and `updatedAt` must be a real Date
+   for the TTL index to act on it. */
+type LocationRow = {
+	activityId: string;
+	userId: string;
+	lat: number;
+	lng: number;
+	updatedAt: Date;
+};
 
 const toRow = <T extends { id: string }>({ id, ...rest }: T): Row<T> => ({ _id: id, ...rest });
 const fromRow = <T extends { id: string }>({ _id, ...rest }: Row<T>): T =>
@@ -72,7 +84,16 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		db
 			.collection<RatingRow>('ratings')
 			.createIndex({ activityId: 1, raterId: 1 }, { unique: true }),
-		db.collection<RatingRow>('ratings').createIndex({ hostId: 1 })
+		db.collection<RatingRow>('ratings').createIndex({ hostId: 1 }),
+		db
+			.collection<LocationRow>('locations')
+			.createIndex({ activityId: 1, userId: 1 }, { unique: true }),
+		// The safety property: a point nobody refreshes disappears on its own,
+		// so a closed tab or a lost signal ends the sharing without anyone
+		// having to remember to stop it.
+		db
+			.collection<LocationRow>('locations')
+			.createIndex({ updatedAt: 1 }, { expireAfterSeconds: LOCATION_TTL_SECONDS })
 	]);
 
 	// Seed per collection, not all-or-nothing: a database that already has real
@@ -159,6 +180,8 @@ export function createMongoStore(uri: string, dbName: string): Store {
 		(await db()).collection('activities');
 	const comments = async (): Promise<Collection<CommentRow>> => (await db()).collection('comments');
 	const ratings = async (): Promise<Collection<RatingRow>> => (await db()).collection('ratings');
+	const locations = async (): Promise<Collection<LocationRow>> =>
+		(await db()).collection('locations');
 
 	/* One query for every user a batch of activities refers to. */
 	const usersFor = async (ids: string[]): Promise<Map<string, User>> => {
@@ -653,6 +676,59 @@ export function createMongoStore(uri: string, dbName: string): Store {
 				hosted,
 				perActivity.map((r) => r.average)
 			);
+		},
+
+		async shareLocation(activityId, userId, lat, lng) {
+			if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+				return { ok: false, reason: 'bad-position' };
+			}
+			if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+				return { ok: false, reason: 'bad-position' };
+			}
+
+			const activity = await (
+				await activities()
+			).findOne({ _id: activityId }, { projection: { memberIds: 1, startsAt: 1 } });
+			if (!activity) return { ok: false, reason: 'not-found' };
+			if (!activity.memberIds.includes(userId)) return { ok: false, reason: 'not-a-member' };
+			if (!isSharingOpen(activity.startsAt)) return { ok: false, reason: 'closed' };
+
+			await (
+				await locations()
+			).updateOne(
+				{ activityId, userId },
+				{ $set: { lat, lng, updatedAt: new Date() } },
+				{ upsert: true }
+			);
+			return { ok: true };
+		},
+
+		async stopSharing(activityId, userId) {
+			await (await locations()).deleteOne({ activityId, userId });
+		},
+
+		async activityLocations(activityId, viewerId) {
+			const activity = await (
+				await activities()
+			).findOne({ _id: activityId }, { projection: { memberIds: 1 } });
+			if (!activity || !activity.memberIds.includes(viewerId)) return [];
+
+			// The TTL monitor only sweeps once a minute, so the cutoff is applied
+			// here too. A stale point must never reach the map.
+			const cutoff = new Date(Date.now() - LOCATION_TTL_SECONDS * 1000);
+			const rows = await (
+				await locations()
+			)
+				.find({ activityId, updatedAt: { $gte: cutoff } })
+				.toArray();
+
+			const users = await usersFor(rows.map((r) => r.userId));
+			return rows.map((r) => ({
+				user: users.get(r.userId) ?? fallbackUser(r.userId),
+				lat: r.lat,
+				lng: r.lng,
+				updatedAt: r.updatedAt.toISOString()
+			}));
 		},
 
 		async addComment(activityId, authorId, body, visibility) {
