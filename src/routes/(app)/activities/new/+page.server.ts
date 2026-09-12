@@ -33,7 +33,7 @@ export const actions = {
 			return fail(400, { errors: result.errors, values });
 		}
 
-		const created = createActivity(result.value, locals.user.id);
+		const created = await createActivity(result.value, locals.user.id);
 		redirect(303, `/activities/${created.id}`);
 	}
 } satisfies Actions;

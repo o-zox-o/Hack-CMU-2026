@@ -30,7 +30,7 @@ export const actions = {
 				email: String(form.get('email') ?? '')
 			});
 
-		const user = verifyLogin(result.email, result.password);
+		const user = await verifyLogin(result.email, result.password);
 		if (!user) {
 			return fail(401, {
 				mode: 'login' as const,
@@ -53,7 +53,7 @@ export const actions = {
 		};
 		if (!result.ok) return fail(400, { mode: 'signup' as const, errors: result.errors, ...echo });
 
-		const created = createUser(result.value);
+		const created = await createUser(result.value);
 		if (!created.ok) {
 			return fail(409, {
 				mode: 'signup' as const,

@@ -13,7 +13,7 @@ import { campusLocation, LOCATION_COOKIE, parseLatLng } from '$lib/geo';
 export const handle: Handle = async ({ event, resolve }) => {
 	const token = event.cookies.get(SESSION_COOKIE);
 	const userId = token ? readSessionToken(token) : null;
-	const user = userId ? getUser(userId) : null;
+	const user = userId ? await getUser(userId) : null;
 
 	const path = event.url.pathname;
 	const isLoginPage = path === '/login';

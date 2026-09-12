@@ -4,10 +4,10 @@ import { campusesByDistance } from '$lib/geo';
 import { listActivities } from '$lib/server/db';
 import { DEFAULT_RADIUS } from '$lib/types';
 
-export const load = (({ locals }) => {
+export const load = (async ({ locals }) => {
 	const viewer = { id: locals.user.id, location: locals.location };
 
-	const openNearby = listActivities({ within: DEFAULT_RADIUS }, viewer).filter(
+	const openNearby = (await listActivities({ within: DEFAULT_RADIUS }, viewer)).filter(
 		(a) => !a.isFull && !isPast(a.startsAt)
 	).length;
 
