@@ -54,13 +54,30 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		db.collection<CommentRow>('comments').createIndex({ activityId: 1, createdAt: 1 })
 	]);
 
-	// Empty database -> load the demo data so a fresh deploy isn't blank.
-	if ((await db.collection('users').estimatedDocumentCount()) === 0) {
-		const { users, activities, comments } = seedData();
-		await db.collection<UserRow>('users').insertMany(users.map(toRow));
-		await db.collection<ActivityRow>('activities').insertMany(activities.map(toRow));
-		await db.collection<CommentRow>('comments').insertMany(comments.map(toRow));
-		console.log(`[db] seeded ${users.length} users, ${activities.length} activities`);
+	// Seed per collection, not all-or-nothing: a database that already has real
+	// sign-ups but no activities still needs the demo activities, and a re-run
+	// must never clobber a real account. Seed users are upserted by _id.
+	const { users: seedUsers, activities: seedActivities, comments: seedComments } = seedData();
+
+	const existing = await db
+		.collection<UserRow>('users')
+		.find({ _id: { $in: seedUsers.map((u) => u.id) } }, { projection: { _id: 1 } })
+		.toArray();
+	const have = new Set(existing.map((u) => u._id));
+	const missing = seedUsers.filter((u) => !have.has(u.id));
+	if (missing.length) {
+		await db.collection<UserRow>('users').insertMany(missing.map(toRow));
+		console.log(`[db] seeded ${missing.length} demo users`);
+	}
+
+	if ((await db.collection('activities').estimatedDocumentCount()) === 0) {
+		await db.collection<ActivityRow>('activities').insertMany(seedActivities.map(toRow));
+		console.log(`[db] seeded ${seedActivities.length} activities`);
+	}
+
+	if ((await db.collection('comments').estimatedDocumentCount()) === 0) {
+		await db.collection<CommentRow>('comments').insertMany(seedComments.map(toRow));
+		console.log(`[db] seeded ${seedComments.length} comments`);
 	}
 
 	return db;

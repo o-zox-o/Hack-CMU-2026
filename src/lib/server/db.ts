@@ -11,12 +11,7 @@ import { createMongoStore } from './store/mongo';
 import type { Store } from './store/types';
 
 export { DEMO_PASSWORD } from './seed';
-export type {
-	JoinResult,
-	LeaveResult,
-	SignupResult,
-	Viewer
-} from './store/types';
+export type { JoinResult, LeaveResult, SignupResult, Viewer } from './store/types';
 
 const uri = env.MONGODB_URI;
 
@@ -26,9 +21,7 @@ export const store: Store = uri
 
 console.log(
 	`[db] backend: ${
-		uri
-			? `MongoDB (${env.MONGODB_DB || 'tagalong'})`
-			: 'in-memory (set MONGODB_URI to persist)'
+		uri ? `MongoDB (${env.MONGODB_DB || 'tagalong'})` : 'in-memory (set MONGODB_URI to persist)'
 	}`
 );
 

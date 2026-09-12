@@ -39,6 +39,8 @@ export function seedData(): SeedData {
 			avatarSeed: 0,
 			email: 'mei@andrew.cmu.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['groceries', 'cooking', 'bulk buys', 'driving'],
 			joinedAt: hoursAgo(24 * 240)
 		},
 		{
@@ -50,6 +52,8 @@ export function seedData(): SeedData {
 			avatarSeed: 1,
 			email: 'satsuki@andrew.cmu.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['music', 'design', 'coffee', 'farmers markets'],
 			joinedAt: hoursAgo(24 * 190)
 		},
 		{
@@ -61,6 +65,8 @@ export function seedData(): SeedData {
 			avatarSeed: 2,
 			email: 'kanta@pitt.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['driving', 'travel', 'early mornings', 'pre-med'],
 			joinedAt: hoursAgo(24 * 150)
 		},
 		{
@@ -72,6 +78,8 @@ export function seedData(): SeedData {
 			avatarSeed: 3,
 			email: 'nori@andrew.cmu.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['groceries', 'budgeting', 'cooking', 'textbooks'],
 			joinedAt: hoursAgo(24 * 95)
 		},
 		{
@@ -83,6 +91,8 @@ export function seedData(): SeedData {
 			avatarSeed: 4,
 			email: 'pria@chatham.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['carpools', 'sustainability', 'errands', 'hiking'],
 			joinedAt: hoursAgo(24 * 70)
 		},
 		{
@@ -94,6 +104,8 @@ export function seedData(): SeedData {
 			avatarSeed: 5,
 			email: 'dev@duq.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['subscriptions', 'food delivery', 'board games'],
 			joinedAt: hoursAgo(24 * 40)
 		},
 		{
@@ -105,6 +117,8 @@ export function seedData(): SeedData {
 			avatarSeed: 6,
 			email: 'lin@pitt.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['furniture', 'ikea', 'diy', 'farmers markets'],
 			joinedAt: hoursAgo(24 * 30)
 		},
 		{
@@ -116,6 +130,8 @@ export function seedData(): SeedData {
 			avatarSeed: 7,
 			email: 'theo@andrew.cmu.edu',
 			passwordHash: demoHash,
+			location: 'Pittsburgh, PA',
+			interests: ['food', 'theatre', 'airport runs', 'late nights'],
 			joinedAt: hoursAgo(24 * 12)
 		},
 		{
@@ -127,6 +143,8 @@ export function seedData(): SeedData {
 			avatarSeed: 0,
 			email: 'ava@psu.edu',
 			passwordHash: demoHash,
+			location: 'State College, PA',
+			interests: ['road trips', 'driving', 'music'],
 			joinedAt: hoursAgo(24 * 20)
 		},
 		{
@@ -138,6 +156,8 @@ export function seedData(): SeedData {
 			avatarSeed: 5,
 			email: 'marcus@mix.wvu.edu',
 			passwordHash: demoHash,
+			location: 'Morgantown, WV',
+			interests: ['groceries', 'bulk buys', 'trucks'],
 			joinedAt: hoursAgo(24 * 9)
 		}
 	];
@@ -156,6 +176,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_satsuki', 'u_nori', 'u_mei', 'u_theo', 'u_lin'],
 			costCents: 600,
 			costBasis: 'per-person',
+			interests: ['music', 'subscriptions'],
 			createdAt: hoursAgo(5)
 		},
 		{
@@ -171,6 +192,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_mei', 'u_nori'],
 			costCents: 1700,
 			costBasis: 'per-person',
+			interests: ['groceries', 'bulk buys', 'driving'],
 			createdAt: hoursAgo(9)
 		},
 		{
@@ -186,6 +208,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_kanta', 'u_theo', 'u_pria'],
 			costCents: 5200,
 			costBasis: 'total',
+			interests: ['travel', 'airport runs', 'early mornings'],
 			createdAt: hoursAgo(14)
 		},
 		{
@@ -201,6 +224,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_lin'],
 			costCents: 900,
 			costBasis: 'per-person',
+			interests: ['furniture', 'ikea', 'diy'],
 			createdAt: hoursAgo(20)
 		},
 		{
@@ -216,6 +240,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_theo', 'u_satsuki'],
 			costCents: 3500,
 			costBasis: 'total',
+			interests: ['food', 'food delivery'],
 			createdAt: hoursAgo(1)
 		},
 		{
@@ -231,6 +256,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_nori', 'u_mei', 'u_satsuki', 'u_theo'],
 			costCents: 0,
 			costBasis: 'per-person',
+			interests: ['groceries', 'cooking', 'walking'],
 			createdAt: hoursAgo(30)
 		},
 		{
@@ -246,6 +272,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_dev', 'u_kanta', 'u_pria'],
 			costCents: 250,
 			costBasis: 'per-person',
+			interests: ['subscriptions', 'reading', 'board games'],
 			createdAt: hoursAgo(36)
 		},
 		{
@@ -261,6 +288,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_pria', 'u_dev'],
 			costCents: 800,
 			costBasis: 'per-person',
+			interests: ['errands', 'carpools'],
 			createdAt: hoursAgo(44)
 		},
 		{
@@ -276,6 +304,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_nori', 'u_mei'],
 			costCents: 6000,
 			costBasis: 'total',
+			interests: ['textbooks', 'budgeting', 'studying'],
 			createdAt: hoursAgo(52)
 		},
 		{
@@ -291,6 +320,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_satsuki', 'u_lin', 'u_nori'],
 			costCents: 1200,
 			costBasis: 'per-person',
+			interests: ['farmers markets', 'cooking', 'groceries'],
 			createdAt: hoursAgo(66)
 		},
 		{
@@ -306,6 +336,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_theo', 'u_satsuki', 'u_nori'],
 			costCents: 0,
 			costBasis: 'per-person',
+			interests: ['food', 'free stuff'],
 			createdAt: hoursAgo(0.5)
 		},
 		{
@@ -321,6 +352,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_lin'],
 			costCents: 0,
 			costBasis: 'per-person',
+			interests: ['furniture', 'free stuff', 'moving'],
 			createdAt: hoursAgo(3)
 		},
 		{
@@ -336,6 +368,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_ava'],
 			costCents: 3000,
 			costBasis: 'per-person',
+			interests: ['road trips', 'driving', 'travel'],
 			createdAt: hoursAgo(6)
 		},
 		{
@@ -351,6 +384,7 @@ export function seedData(): SeedData {
 			memberIds: ['u_marcus'],
 			costCents: 600,
 			costBasis: 'per-person',
+			interests: ['groceries', 'bulk buys', 'driving'],
 			createdAt: hoursAgo(12)
 		}
 	];
