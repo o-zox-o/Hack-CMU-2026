@@ -34,8 +34,13 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// Wants every href wrapped in resolve() from $app/paths. Only matters if
+			// the app is served under a base path, which it is not.
+			'svelte/no-navigation-without-resolve': 'off',
+			// Flags one-off `new Date()` / `new Map()` constants that are never
+			// meant to be reactive.
+			'svelte/prefer-svelte-reactivity': 'off'
+		}
 	}
 );
