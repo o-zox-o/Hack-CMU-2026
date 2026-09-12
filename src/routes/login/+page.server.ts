@@ -118,8 +118,11 @@ export const actions = {
 		const created = await createUser(pending);
 		clearPendingSignupCookie(cookies);
 		if (!created.ok) {
+			// Back to the signup form — the code-entry step has nowhere to show
+			// an email-field error, and there's nothing left to verify anyway.
 			return fail(409, {
 				mode: 'signup' as const,
+				step: 'form' as const,
 				errors: { email: 'There is already an account with this email — log in instead.' },
 				name: pending.name,
 				email: pending.email,
