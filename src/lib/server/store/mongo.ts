@@ -70,43 +70,36 @@ async function connect(uri: string, dbName: string): Promise<Db> {
 		console.log(`[db] seeded ${missing.length} demo users`);
 	}
 
-<<<<<<< Updated upstream
-	// Same idea for activities: add any demo row that isn't there yet, so a
-	// database that's already live still picks up newly seeded examples.
-	const haveActivities = new Set(
+	// Demo activities: insert the missing ones, and refresh the content of any
+	// that already exist so edits to seed.ts actually reach a live database.
+	// `memberIds` is deliberately excluded — that's the one field on a seeded
+	// activity that belongs to real people.
+	const activityCol = db.collection<ActivityRow>('activities');
+	const seenActivities = new Set(
 		(
-			await db
-				.collection<ActivityRow>('activities')
+			await activityCol
 				.find({ _id: { $in: seedActivities.map((a) => a.id) } }, { projection: { _id: 1 } })
 				.toArray()
 		).map((a) => a._id)
 	);
-	const newActivities = seedActivities.filter((a) => !haveActivities.has(a.id));
+
+	const newActivities = seedActivities.filter((a) => !seenActivities.has(a.id));
 	if (newActivities.length) {
-		await db.collection<ActivityRow>('activities').insertMany(newActivities.map(toRow));
+		await activityCol.insertMany(newActivities.map(toRow));
 		console.log(`[db] seeded ${newActivities.length} activities`);
 	}
-=======
-	const activityCol = db.collection<ActivityRow>('activities');
 
-const existingActivities = await activityCol
-	.find(
-		{ _id: { $in: seedActivities.map((a) => a.id) } },
-		{ projection: { _id: 1 } }
-	)
-	.toArray();
-
-const existingActivityIds = new Set(existingActivities.map((a) => a._id));
-
-const missingActivities = seedActivities.filter(
-	(a) => !existingActivityIds.has(a.id)
-);
-
-if (missingActivities.length) {
-	await activityCol.insertMany(missingActivities.map(toRow));
-	console.log(`[db] seeded ${missingActivities.length} new activities`);
-}
->>>>>>> Stashed changes
+	const refresh = seedActivities.filter((a) => seenActivities.has(a.id));
+	if (refresh.length) {
+		await activityCol.bulkWrite(
+			refresh.map((a) => {
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				const { _id, memberIds, ...content } = toRow(a);
+				return { updateOne: { filter: { _id }, update: { $set: content } } };
+			})
+		);
+		console.log(`[db] refreshed ${refresh.length} seeded activities`);
+	}
 
 	if ((await db.collection('comments').estimatedDocumentCount()) === 0) {
 		await db.collection<CommentRow>('comments').insertMany(seedComments.map(toRow));
