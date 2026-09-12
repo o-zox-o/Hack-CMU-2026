@@ -16,7 +16,23 @@ import { DEMO_USER_ID, getUser, listUsers } from '$lib/server/db';
  */
 export const handle: Handle = async ({ event, resolve }) => {
 	const cookieId = event.cookies.get('demo_user');
-	event.locals.user = getUser(cookieId ?? '') ?? getUser(DEMO_USER_ID) ?? listUsers()[0];
+
+	let user = cookieId ? await getUser(cookieId) : null;
+
+	if (!user) {
+		user = await getUser(DEMO_USER_ID);
+	}
+
+	if (!user) {
+		const users = await listUsers();
+		user = users[0] ?? null;
+	}
+
+	if (!user) {
+		throw new Error('No users found in database');
+	}
+
+	event.locals.user = user;
 
 	return resolve(event);
 };

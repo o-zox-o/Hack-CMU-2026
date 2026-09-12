@@ -106,14 +106,27 @@ async function toCommentView(comment: Comment): Promise<CommentView> {
 export async function getUser(id: string): Promise<User | null> {
 	const db = await getDb();
 
-	return await db.collection<User>('users').findOne({ id });
+	const user = await db.collection<User>('users').findOne({ id });
+
+	if (!user) return null;
+
+	const { _id, ...plainUser } = user as User & { _id?: unknown };
+
+	return plainUser;
 }
 
 export async function listUsers(): Promise<User[]> {
 	const db = await getDb();
 
-	return await db.collection<User>('users').find({}).toArray();
+	const users = await db.collection<User>('users').find({}).toArray();
+
+	return users.map((user) => {
+		const { _id, ...plainUser } = user as User & { _id?: unknown };
+		return plainUser;
+	});
 }
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Activities                                                                 */
