@@ -24,10 +24,20 @@
 	<!-- Category tile in the left gutter — links into the filtered feed. -->
 	<a
 		href="/?category={activity.category}"
-		class="flex w-12 shrink-0 items-start justify-center bg-surface-sunk pt-3 text-xl transition-colors hover:bg-brand-wash sm:w-14 sm:text-2xl"
+		class="flex w-12 shrink-0 flex-col items-center gap-1 bg-surface-sunk pt-3 transition-colors hover:bg-brand-wash sm:w-14"
 		aria-label="All {category.label.toLowerCase()} activities"
 	>
 		<Icon name={category.icon} size={20} />
+		{#if activity.matchPercent !== null}
+			<span
+				class="text-fluid-xs font-extrabold tabular-nums {activity.matchPercent >= 50
+					? 'text-brand-ink'
+					: 'text-ink-muted'}"
+				title="{activity.matchPercent}% match with your interests"
+			>
+				{activity.matchPercent}%
+			</span>
+		{/if}
 	</a>
 
 	<div class="min-w-0 flex-1 px-3 py-2.5 sm:px-4">

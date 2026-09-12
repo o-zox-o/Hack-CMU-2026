@@ -19,6 +19,14 @@ export interface Viewer {
 	interests?: string[];
 }
 
+/** The parts of a profile someone can edit. Any field left out is untouched. */
+export interface ProfilePatch {
+	bio?: string;
+	/** Free-text city, shown on the profile. */
+	location?: string;
+	interests?: string[];
+}
+
 export type SignupResult = { ok: true; user: User } | { ok: false; reason: 'email-taken' };
 
 export type JoinResult =
@@ -41,7 +49,7 @@ export interface Store {
 	getUserEmail(id: string): Promise<string | null>;
 	verifyLogin(email: string, password: string): Promise<User | null>;
 	createUser(input: SignupInput): Promise<SignupResult>;
-	setInterests(userId: string, interests: string[]): Promise<User | null>;
+	updateProfile(userId: string, patch: ProfilePatch): Promise<User | null>;
 
 	listActivities(query?: FeedQuery, viewer?: Viewer): Promise<ActivityView[]>;
 	getActivity(id: string, viewer?: Viewer): Promise<ActivityView | null>;

@@ -6,7 +6,7 @@
 
 import { perPersonCents } from '$lib/format';
 import { campusesWithin, distanceToCampus } from '$lib/geo';
-import { rankByRelevance } from '$lib/matching';
+import { matchPercent, rankByRelevance } from '$lib/matching';
 import { CATEGORY_INTERESTS } from '$lib/types';
 import type {
 	Activity,
@@ -143,6 +143,10 @@ export function toView(
 		members: activity.memberIds.map(user),
 		commentCount,
 		distanceMiles: viewer?.location ? distanceToCampus(viewer.location, activity.campus) : null,
+		matchPercent: matchPercent(
+			{ interests: viewer?.interests, location: viewer?.location },
+			activity
+		),
 		spotsTaken,
 		spotsLeft: Math.max(0, activity.spots - spotsTaken),
 		isFull: spotsTaken >= activity.spots,

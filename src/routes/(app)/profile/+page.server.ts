@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { clearSessionCookie } from '$lib/server/auth';
-import { activitiesHostedBy, activitiesJoinedBy, setInterests } from '$lib/server/db';
+import { activitiesHostedBy, activitiesJoinedBy, updateProfile } from '$lib/server/db';
 import { isInterest } from '$lib/types';
 
 export const load = (async ({ locals }) => {
@@ -18,10 +18,17 @@ export const load = (async ({ locals }) => {
 }) satisfies PageServerLoad;
 
 export const actions = {
-	interests: async ({ request, locals }) => {
+	profile: async ({ request, locals }) => {
 		const form = await request.formData();
-		const chosen = [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12);
-		await setInterests(locals.user.id, chosen);
+		await updateProfile(locals.user.id, {
+			bio: String(form.get('bio') ?? '')
+				.trim()
+				.slice(0, 300),
+			location: String(form.get('location') ?? '')
+				.trim()
+				.slice(0, 80),
+			interests: [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12)
+		});
 		return { saved: true };
 	},
 

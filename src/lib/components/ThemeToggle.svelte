@@ -13,10 +13,11 @@
 
 <button
 	type="button"
-	class="rounded-full p-2 text-ink-soft transition-colors hover:bg-surface-hover hover:text-ink"
+	class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hedge-strong px-2.5 py-1.5 text-ink transition-colors hover:border-brand hover:bg-brand-wash hover:text-brand-ink"
 	onclick={() => theme.cycle()}
 	title="Theme: {look.label} — click to change"
 	aria-label="Theme: {look.label}. Click to change."
 >
-	<Icon name={look.icon} size={18} />
+	<Icon name={look.icon} size={17} />
+	<span class="hidden text-fluid-xs font-bold sm:inline">{look.label}</span>
 </button>
