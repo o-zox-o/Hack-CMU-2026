@@ -18,6 +18,30 @@
  *     check inside the filter. Read-then-write reintroduces overbooking.
  */
 
+import { MongoClient } from 'mongodb';
+import { env } from '$env/dynamic/private';
+
+if (!env.MONGODB_URI) {
+	throw new Error('MONGODB_URI is not set');
+}
+
+if (!env.MONGODB_DB) {
+	throw new Error('MONGODB_DB is not set');
+}
+
+const client = new MongoClient(env.MONGODB_URI);
+
+let connected = false;
+
+export async function getDb() {
+	if (!connected) {
+		await client.connect();
+		connected = true;
+	}
+
+	return client.db(env.MONGODB_DB);
+}
+
 // import { MongoClient, type Collection, type Db } from 'mongodb';
 // import { env } from '$env/dynamic/private';
 //

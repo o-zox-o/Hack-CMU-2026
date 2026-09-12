@@ -2,8 +2,8 @@ import type { LayoutServerLoad } from './$types';
 import { isPast } from '$lib/format';
 import { listActivities } from '$lib/server/db';
 
-export const load = (({ locals }) => {
-	const openOnCampus = listActivities({ campus: locals.user.campus }).filter(
+export const load = (async ({ locals }) => {
+	const openOnCampus = (await listActivities({ campus: locals.user.campus })).filter(
 		(a) => !a.isFull && !isPast(a.startsAt)
 	).length;
 
