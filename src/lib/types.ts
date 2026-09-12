@@ -465,7 +465,14 @@ export interface LiveLocationView {
 export const LOCATION_TTL_SECONDS = 120;
 
 /** Sharing opens this long before the start time. */
-export const SHARE_OPENS_MINUTES_BEFORE = 30;
+export const SHARE_OPENS_MINUTES_BEFORE = 5;
+
+/**
+ * How far behind "now" a start time may be. Posting something you're about to
+ * do means the clock has usually moved on by the time you finish typing, and
+ * refusing that is pedantic about a minute nobody cares about.
+ */
+export const START_GRACE_MINUTES = 5;
 /** And closes this long after it, since activities have no end time. */
 export const SHARE_CLOSES_HOURS_AFTER = 3;
 

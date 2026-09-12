@@ -13,6 +13,7 @@ import {
 	isCategoryId,
 	isStudentOnly,
 	isVisibility,
+	START_GRACE_MINUTES,
 	type CostBasis,
 	type NewActivityInput,
 	type SignupInput,
@@ -105,7 +106,10 @@ export function validateActivity(
 
 	if (!parsedDate) {
 		errors.startsAt = 'Pick a date and time.';
-	} else if (!rules.allowPastStart && parsedDate.getTime() < Date.now() - 60_000) {
+	} else if (
+		!rules.allowPastStart &&
+		parsedDate.getTime() < Date.now() - START_GRACE_MINUTES * 60_000
+	) {
 		errors.startsAt = 'That time has already passed.';
 	} else {
 		startsAt = parsedDate.toISOString();

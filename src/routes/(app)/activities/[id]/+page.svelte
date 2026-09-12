@@ -9,8 +9,8 @@
 	import ShareButton from '$lib/components/ShareButton.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
 	import VisibilityBadge from '$lib/components/VisibilityBadge.svelte';
-	import { costSplit, formatMiles, formatPrice, formatWhen, timeAgo } from '$lib/format';
-	import { campusMeta } from '$lib/types';
+	import { costSplit, formatMiles, formatPrice, formatWhen, isPast, timeAgo } from '$lib/format';
+	import { campusMeta, SHARE_OPENS_MINUTES_BEFORE } from '$lib/types';
 
 	let { data, form } = $props();
 
@@ -253,6 +253,15 @@
 				<div class="mt-4">
 					<LiveLocationMap {activity} meId={data.user.id} />
 				</div>
+			{:else if activity.joined && !isPast(activity.startsAt)}
+				<!-- Say the map exists and when it turns up. Rendering nothing here
+				     reads as a broken feature rather than one that hasn't started. -->
+				<p
+					class="mt-4 flex items-center gap-1.5 rounded-lg bg-surface-sunk px-3 py-2 text-fluid-xs text-ink-muted"
+				>
+					<Icon name="pin" size={14} />
+					A live map of everyone opens {SHARE_OPENS_MINUTES_BEFORE} minutes before this starts.
+				</p>
 			{/if}
 
 			<!-- Did it happen? Only the host can say, and nobody gets grass until they do. -->

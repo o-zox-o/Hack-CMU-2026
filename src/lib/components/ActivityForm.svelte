@@ -103,7 +103,7 @@
 	import { enhance } from '$app/forms';
 	import Icon from '$lib/components/Icon.svelte';
 	import { costSplit, parseCents } from '$lib/format';
-	import { CAMPUSES, CATEGORIES } from '$lib/types';
+	import { CAMPUSES, CATEGORIES, START_GRACE_MINUTES } from '$lib/types';
 	import { MAX_SPOTS, type FieldErrors } from '$lib/validate';
 
 	interface Props {
@@ -183,7 +183,9 @@
 	/* Editing something that already started shouldn't fight you over its own
 	   date, so the floor only applies while the start time is still ahead. */
 	let minStart = $derived(
-		new Date(values.startsAt).getTime() < Date.now() ? undefined : toLocalInputValue(new Date())
+		new Date(values.startsAt).getTime() < Date.now()
+			? undefined
+			: toLocalInputValue(new Date(Date.now() - START_GRACE_MINUTES * 60_000))
 	);
 
 	const err = 'mt-1 text-fluid-xs font-bold text-berry-500';
@@ -329,7 +331,12 @@
 
 	<!-- Who can find it, and who decides who gets in -->
 	<fieldset class="rounded-lg bg-surface-sunk p-3">
-		<legend class="label px-1">Who can join</legend>
+		<!-- A <legend> is laid out on the fieldset's top border, so with a
+		     background and no border it floats above the box instead of sitting
+		     inside it. Kept for the grouping it gives a screen reader, with the
+		     visible heading as an ordinary block. -->
+		<legend class="sr-only">Who can join</legend>
+		<p class="label px-1" aria-hidden="true">Who can join</p>
 
 		<div class="grid gap-2 sm:grid-cols-2">
 			{#each OPTIONS as option (option.id)}
