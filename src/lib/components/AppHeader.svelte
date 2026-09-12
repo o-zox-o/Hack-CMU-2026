@@ -3,6 +3,7 @@
 	import type { User } from '$lib/types';
 	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
+	import ThemeToggle from './ThemeToggle.svelte';
 
 	interface Props {
 		user: User;
@@ -60,6 +61,8 @@
 			<Icon name="plus" size={16} strokeWidth={3} />
 			<span class="hidden sm:inline">Create</span>
 		</a>
+
+		<ThemeToggle />
 
 		<a href="/profile" class="shrink-0 rounded-full" aria-label="Your profile">
 			<Avatar {user} />

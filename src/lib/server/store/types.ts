@@ -15,6 +15,8 @@ import type {
 export interface Viewer {
 	id: string;
 	location?: LatLng;
+	/** From the signup survey — drives the "For you" ordering. */
+	interests?: string[];
 }
 
 export type SignupResult = { ok: true; user: User } | { ok: false; reason: 'email-taken' };
@@ -39,6 +41,7 @@ export interface Store {
 	getUserEmail(id: string): Promise<string | null>;
 	verifyLogin(email: string, password: string): Promise<User | null>;
 	createUser(input: SignupInput): Promise<SignupResult>;
+	setInterests(userId: string, interests: string[]): Promise<User | null>;
 
 	listActivities(query?: FeedQuery, viewer?: Viewer): Promise<ActivityView[]>;
 	getActivity(id: string, viewer?: Viewer): Promise<ActivityView | null>;

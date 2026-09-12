@@ -12,7 +12,7 @@
 		if (data.query.q) return `Results for “${data.query.q}”`;
 		if (data.query.category) return categoryMeta(data.query.category).label;
 		if (data.query.campus) return campusMeta(data.query.campus).label;
-		return 'Near you';
+		return data.query.sort === 'foryou' ? 'For you' : 'Near you';
 	});
 
 	/* Where we're looking: one campus, a radius around you, or everywhere. */

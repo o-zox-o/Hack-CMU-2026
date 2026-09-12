@@ -160,6 +160,13 @@ export function createMongoStore(uri: string, dbName: string): Store {
 			return { ok: false, reason: 'email-taken' };
 		},
 
+		async setInterests(userId, interests) {
+			const row = await (
+				await users()
+			).findOneAndUpdate({ _id: userId }, { $set: { interests } }, { returnDocument: 'after' });
+			return row ? toUser(fromRow<UserDoc>(row)) : null;
+		},
+
 		async listActivities(query = {}, viewer) {
 			const filter: Filter<ActivityRow> = {};
 			const scope = campusScope(query, viewer);

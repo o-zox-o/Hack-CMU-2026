@@ -3,9 +3,10 @@
 	import ActivityCard from '$lib/components/ActivityCard.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import InterestPicker from '$lib/components/InterestPicker.svelte';
 	import { campusMeta } from '$lib/types';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	let user = $derived(data.user);
 
@@ -54,6 +55,25 @@
 				</form>
 			</div>
 		</div>
+	</section>
+
+	<!-- Interests: what the "For you" feed ranks against -->
+	<section class="leaf-card p-4 sm:p-5">
+		<h2 class="text-fluid-xs font-extrabold tracking-wider text-ink-muted uppercase">
+			Your interests
+		</h2>
+		<p class="mt-1 text-fluid-sm text-ink-soft">These decide what shows up first in your feed.</p>
+		<form method="POST" action="?/interests" class="mt-3" use:enhance>
+			<InterestPicker selected={user.interests} />
+			<div class="mt-3 flex items-center gap-3">
+				<button type="submit" class="btn btn-primary">Save interests</button>
+				{#if form?.saved}
+					<span class="inline-flex items-center gap-1 text-fluid-xs font-bold text-brand-ink">
+						<Icon name="check" size={14} strokeWidth={3} /> Saved
+					</span>
+				{/if}
+			</div>
+		</form>
 	</section>
 
 	<a

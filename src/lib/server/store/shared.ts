@@ -6,6 +6,8 @@
 
 import { perPersonCents } from '$lib/format';
 import { campusesWithin, distanceToCampus } from '$lib/geo';
+import { rankByRelevance } from '$lib/matching';
+import { CATEGORY_INTERESTS } from '$lib/types';
 import type {
 	Activity,
 	ActivityView,
@@ -64,7 +66,7 @@ export function newUserDoc(input: SignupInput, handle: string, avatarSeed: numbe
 		passwordHash: hashPassword(input.password),
 		campus: input.campus,
 		location: '',
-		interests: [],
+		interests: input.interests,
 		bio: '',
 		avatarSeed,
 		joinedAt: new Date().toISOString()
@@ -87,7 +89,9 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 		memberIds: [hostId], // the host occupies one spot
 		costCents: input.costCents,
 		costBasis: input.costBasis,
-		interests: [],
+		// Untagged activities inherit their category's tags so they can still
+		// be matched against someone's interests.
+		interests: CATEGORY_INTERESTS[input.category] ?? [],
 		createdAt: new Date().toISOString()
 	};
 }
@@ -182,7 +186,12 @@ export function searchAndSort(rows: Activity[], query: FeedQuery, viewer?: Viewe
 	const perHead = (a: Activity) => perPersonCents(a.costCents, a.costBasis, a.spots);
 	const miles = (a: Activity) =>
 		viewer?.location ? distanceToCampus(viewer.location, a.campus) : 0;
-	const sort = query.sort ?? 'soonest';
+	const sort = query.sort ?? 'foryou';
+
+	// The default feed is ranked against the viewer, not the clock.
+	if (sort === 'foryou') {
+		return rankByRelevance({ interests: viewer?.interests, location: viewer?.location }, rows);
+	}
 
 	return [...rows].sort((a, b) => {
 		if (sort === 'new') return b.createdAt.localeCompare(a.createdAt);

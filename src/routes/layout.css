@@ -72,8 +72,8 @@
 }
 
 /* Semantic tokens. Cream page, off-white cards, warm near-black ink, and
-   clover green as the single accent. Light only — the app looks the same
-   whatever the OS theme is set to. */
+   clover green as the single accent. Light is the base; the dark overrides
+   below swap only these tokens, so no component needs a `dark:` prefix. */
 :root {
 	--page: #f6f2e7;
 	--surface: #fffdf7;
@@ -91,6 +91,52 @@
 	--on-brand: #fffdf7;
 
 	color-scheme: light;
+}
+
+/* Dark tokens. Two selectors on purpose:
+     - the media query covers "System", which is the default
+     - [data-theme='dark'] covers an explicit choice, and beats the system
+   `:not([data-theme='light'])` lets an explicit Light win under a dark OS.
+   The values are duplicated because CSS can't share a block across a media
+   query and a selector — keep the two lists in sync. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--page: #14140f;
+		--surface: #1e1d17;
+		--surface-sunk: #191813;
+		--surface-hover: #2a2921;
+		--hedge: #33322a;
+		--hedge-strong: #4d4b3f;
+		--ink: #f4f0e4;
+		--ink-soft: #cbc6b6;
+		--ink-muted: #918c7c;
+		--brand: #5cb551;
+		--brand-strong: #6fc663;
+		--brand-wash: #21301e;
+		--brand-ink: #8ed483;
+		--on-brand: #11170f;
+
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme='dark'] {
+	--page: #14140f;
+	--surface: #1e1d17;
+	--surface-sunk: #191813;
+	--surface-hover: #2a2921;
+	--hedge: #33322a;
+	--hedge-strong: #4d4b3f;
+	--ink: #f4f0e4;
+	--ink-soft: #cbc6b6;
+	--ink-muted: #918c7c;
+	--brand: #5cb551;
+	--brand-strong: #6fc663;
+	--brand-wash: #21301e;
+	--brand-ink: #8ed483;
+	--on-brand: #11170f;
+
+	color-scheme: dark;
 }
 
 /* Expose the semantic tokens as Tailwind utilities. `@theme inline` emits

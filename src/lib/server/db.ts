@@ -30,6 +30,7 @@ export const {
 	getUserEmail,
 	verifyLogin,
 	createUser,
+	setInterests,
 	listActivities,
 	getActivity,
 	listComments,

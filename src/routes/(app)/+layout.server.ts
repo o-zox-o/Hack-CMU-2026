@@ -6,7 +6,11 @@ import { listActivities } from '$lib/server/db';
 import { campusMeta, DEFAULT_RADIUS } from '$lib/types';
 
 export const load = (async ({ locals, url }) => {
-	const viewer = { id: locals.user.id, location: locals.location };
+	const viewer = {
+		id: locals.user.id,
+		location: locals.location,
+		interests: locals.user.interests
+	};
 
 	/* The rail's count follows whatever place the user is actually looking at.
 	   Only the location scope carries over — category, free and search narrow

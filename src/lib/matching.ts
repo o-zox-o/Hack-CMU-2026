@@ -1,77 +1,87 @@
-// src/lib/matching.ts
-import type { User, ActivityView } from './types';
+/**
+ * Feed ranking — how well an activity matches the person looking at it.
+ *
+ * Pure functions over the app's own types, so they run on the server (feed
+ * sorting) and in the browser (showing a match badge) without a database.
+ *
+ * Three signals, blended:
+ *   interests  what they said they're into, vs the activity's tags
+ *   proximity  how far it is — a great match 100 miles away is not a match
+ *   urgency    sooner is more actionable; things weeks out can wait
+ *
+ * Someone who skipped the survey still gets a sensible feed: the interest
+ * term drops out and the other two take its place.
+ */
 
-// 1. Tag Similarity: Overlap coverage (avoids penalizing users with many interests)
-export function activityTagCoverage(userInterests: string[], activityInterests: string[]): number {
-	if (!activityInterests || !activityInterests.length) return 0.5;
-	if (!userInterests || !userInterests.length) return 0;
+import { distanceToCampus } from './geo';
+import type { CampusId, LatLng } from './types';
 
-	const userSet = new Set(userInterests.map((s) => s.toLowerCase()));
-	const matches = activityInterests.filter((tag) => userSet.has(tag.toLowerCase())).length;
-
-	return matches / activityInterests.length;
+/** Overlap of two tag sets, 0–1. Order and case don't matter. */
+export function jaccardSimilarity(a: string[], b: string[]): number {
+	if (!a.length || !b.length) return 0;
+	const setA = new Set(a.map((s) => s.trim().toLowerCase()));
+	const setB = new Set(b.map((s) => s.trim().toLowerCase()));
+	let shared = 0;
+	for (const tag of setA) if (setB.has(tag)) shared++;
+	const union = setA.size + setB.size - shared;
+	return union === 0 ? 0 : shared / union;
 }
 
-// 2. User vs Host Interpersonal Fit (Jaccard for mutual interests + Campus affinity)
-export function calculateUserFit(applicant: User, host: User): number {
-	if (!applicant.interests?.length || !host.interests?.length) {
-		return applicant.campus === host.campus ? 1.0 : 0.7;
-	}
-
-	const setA = new Set(applicant.interests.map((s) => s.toLowerCase()));
-	const setB = new Set(host.interests.map((s) => s.toLowerCase()));
-	const intersection = [...setA].filter((x) => setB.has(x)).length;
-	const union = new Set([...setA, ...setB]).size;
-	const interestScore = union === 0 ? 0 : intersection / union;
-
-	const schoolBonus = applicant.campus === host.campus ? 1.0 : 0.7;
-	return 0.75 * interestScore + 0.25 * schoolBonus;
+/** The person the feed is being built for. */
+export interface MatchViewer {
+	interests?: string[];
+	location?: LatLng;
 }
 
-// 3. Activity Fit (Directly evaluates pre-computed ActivityView fields)
-export function calculateActivityFit(
-	applicant: User,
-	activity: ActivityView,
-	applicantBudgetDollars?: number
-): number {
-	// Precomputed hard constraint from server
-	if (activity.isFull) return 0;
-
-	// Tag similarity with fallback to category match
-	let interestScore = 0;
-	if (activity.interests && activity.interests.length > 0) {
-		interestScore = activityTagCoverage(applicant.interests, activity.interests);
-	} else if (activity.category) {
-		const hasCategory = applicant.interests.some(
-			(i) => i.toLowerCase() === activity.category.toLowerCase()
-		);
-		interestScore = hasCategory ? 0.9 : 0.4;
-	}
-
-	if (applicantBudgetDollars === undefined || applicantBudgetDollars === null) {
-		return interestScore;
-	}
-
-	const costDollars = activity.costCents / 100;
-	let budgetScore = 1.0;
-	if (costDollars > 0) {
-		const diffRatio = Math.abs(applicantBudgetDollars - costDollars) / costDollars;
-		budgetScore = Math.max(0, 1 - diffRatio);
-	}
-
-	return 0.7 * interestScore + 0.3 * budgetScore;
+/** The parts of an activity that ranking cares about. */
+export interface MatchTarget {
+	interests: string[];
+	campus: CampusId;
+	startsAt: string;
 }
 
-// 4. Primary Ranking Entrypoint for the UI Feed
-export function rankActivityView(
-	viewer: User,
-	activity: ActivityView,
-	viewerBudgetDollars?: number
-): number {
-	const actFit = calculateActivityFit(viewer, activity, viewerBudgetDollars);
-	if (actFit === 0) return 0;
+/** 1 next door, tapering to 0 at ~60 miles. */
+function proximityScore(viewer: MatchViewer, campus: CampusId): number {
+	if (!viewer.location) return 0.5; // unknown location shouldn't punish anything
+	const miles = distanceToCampus(viewer.location, campus);
+	return Math.max(0, 1 - miles / 60);
+}
 
-	// Host is already populated on ActivityView
-	const hostFit = calculateUserFit(viewer, activity.host);
-	return Math.round((0.6 * actFit + 0.4 * hostFit) * 100);
+/** 1 for the next day or so, tapering to 0 about two weeks out. Past = 0. */
+function urgencyScore(startsAt: string, now: number): number {
+	const hours = (new Date(startsAt).getTime() - now) / 3_600_000;
+	if (hours < 0) return 0;
+	if (hours <= 24) return 1;
+	return Math.max(0, 1 - (hours - 24) / (14 * 24));
+}
+
+/**
+ * How relevant this activity is to this viewer, 0–1.
+ * Use `rankByRelevance` to sort; this is exported for badges and debugging.
+ */
+export function relevance(viewer: MatchViewer, target: MatchTarget, now = Date.now()): number {
+	const proximity = proximityScore(viewer, target.campus);
+	const urgency = urgencyScore(target.startsAt, now);
+
+	const tags = viewer.interests ?? [];
+	if (tags.length === 0) return 0.6 * proximity + 0.4 * urgency;
+
+	const interest = jaccardSimilarity(tags, target.interests);
+	return 0.55 * interest + 0.25 * proximity + 0.2 * urgency;
+}
+
+/** Sorted copy, best match first, ties broken by whichever starts sooner. */
+export function rankByRelevance<T extends MatchTarget>(viewer: MatchViewer, items: T[]): T[] {
+	const now = Date.now();
+	const scored = items.map((item) => ({ item, score: relevance(viewer, item, now) }));
+	scored.sort((a, b) => b.score - a.score || a.item.startsAt.localeCompare(b.item.startsAt));
+	return scored.map((s) => s.item);
+}
+
+/** "82% match" — only worth showing when the viewer actually took the survey. */
+export function matchPercent(viewer: MatchViewer, target: MatchTarget): number | null {
+	if (!viewer.interests?.length) return null;
+	const shared = jaccardSimilarity(viewer.interests, target.interests);
+	if (shared === 0) return null;
+	return Math.round(relevance(viewer, target) * 100);
 }

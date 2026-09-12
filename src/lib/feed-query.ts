@@ -28,7 +28,7 @@ export function feedQueryFromUrl(url: URL): FeedQuery {
 		campus: isCampusId(campus) ? campus : undefined,
 		within: parseRadius(within) ?? DEFAULT_RADIUS,
 		free: url.searchParams.get('free') === '1',
-		sort: isSortId(sort) ? sort : 'soonest',
+		sort: isSortId(sort) ? sort : 'foryou',
 		q: q || undefined
 	};
 }

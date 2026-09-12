@@ -160,6 +160,58 @@ export function radiusLabel(radius: Radius): string {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Interests — the signup survey, and what the feed ranks against             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The tag catalogue. Kept to one screen of chips on purpose: the survey has to
+ * be answerable in about ten seconds or people skip it.
+ */
+export const INTERESTS = [
+	'food',
+	'coffee',
+	'cooking',
+	'groceries',
+	'bulk buys',
+	'farmers markets',
+	'free stuff',
+	'rides',
+	'driving',
+	'music',
+	'movies',
+	'gaming',
+	'board games',
+	'studying',
+	'textbooks',
+	'fitness',
+	'outdoors',
+	'thrifting',
+	'furniture',
+	'diy',
+	'art',
+	'photography',
+	'sustainability',
+	'errands'
+] as const;
+
+export type Interest = (typeof INTERESTS)[number];
+
+export function isInterest(value: unknown): value is Interest {
+	return typeof value === 'string' && (INTERESTS as readonly string[]).includes(value);
+}
+
+/** What a new activity inherits when its host doesn't tag it by hand. */
+export const CATEGORY_INTERESTS: Record<CategoryId, string[]> = {
+	subscriptions: ['music', 'movies'],
+	groceries: ['groceries', 'cooking', 'bulk buys'],
+	rides: ['rides', 'driving'],
+	food: ['food'],
+	supplies: ['furniture', 'diy'],
+	errands: ['errands'],
+	other: []
+};
+
+/* -------------------------------------------------------------------------- */
 /* Users                                                                      */
 /* -------------------------------------------------------------------------- */
 
@@ -192,6 +244,8 @@ export interface SignupInput {
 	email: string;
 	campus: CampusId;
 	password: string;
+	/** From the signup survey. May be empty — the feed falls back to time + distance. */
+	interests: string[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -269,6 +323,7 @@ export interface CommentView {
 /* -------------------------------------------------------------------------- */
 
 export const SORTS = [
+	{ id: 'foryou', label: 'For you' },
 	{ id: 'soonest', label: 'Soonest' },
 	{ id: 'nearest', label: 'Nearest' },
 	{ id: 'cheapest', label: 'Cheapest' },

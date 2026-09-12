@@ -4,7 +4,11 @@ import { addComment, getActivity, joinActivity, leaveActivity, listComments } fr
 import { notifyHostOfJoin } from '$lib/server/email';
 
 export const load = (async ({ params, locals }) => {
-	const activity = await getActivity(params.id, { id: locals.user.id, location: locals.location });
+	const activity = await getActivity(params.id, {
+		id: locals.user.id,
+		location: locals.location,
+		interests: locals.user.interests
+	});
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
 	return { activity, comments: await listComments(params.id) };

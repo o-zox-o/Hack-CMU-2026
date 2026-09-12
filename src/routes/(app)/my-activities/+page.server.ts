@@ -6,7 +6,11 @@ const FILTERS = ['all', 'hosting', 'joined'] as const;
 export type MyFilter = (typeof FILTERS)[number];
 
 export const load = (async ({ locals, url }) => {
-	const viewer = { id: locals.user.id, location: locals.location };
+	const viewer = {
+		id: locals.user.id,
+		location: locals.location,
+		interests: locals.user.interests
+	};
 
 	const [hosting, joined] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
