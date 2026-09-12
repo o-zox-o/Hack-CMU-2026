@@ -97,6 +97,13 @@
 	--free-wash: #fbdce4;
 	--free-ink: #ad3859;
 
+	/* The top 1% badge: warm metal, not a flat label. */
+	--shiny-from: #f4dfa4;
+	--shiny-to: #e6c168;
+	--shiny-edge: #c9a24a;
+	--shiny-ink: #5a4212;
+	--shiny-gleam: #fffdf2;
+
 	color-scheme: light;
 }
 
@@ -126,6 +133,11 @@
 		--wildcard-ink: #9ccbe4;
 		--free-wash: #33202a;
 		--free-ink: #f2a9c0;
+		--shiny-from: #6b5520;
+		--shiny-to: #47380f;
+		--shiny-edge: #8a6f2c;
+		--shiny-ink: #f6e2ad;
+		--shiny-gleam: #fff4cf80;
 
 		color-scheme: dark;
 	}
@@ -150,6 +162,11 @@
 	--wildcard-ink: #9ccbe4;
 	--free-wash: #33202a;
 	--free-ink: #f2a9c0;
+	--shiny-from: #6b5520;
+	--shiny-to: #47380f;
+	--shiny-edge: #8a6f2c;
+	--shiny-ink: #f6e2ad;
+	--shiny-gleam: #fff4cf80;
 
 	color-scheme: dark;
 }

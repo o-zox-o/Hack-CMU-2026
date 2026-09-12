@@ -273,6 +273,11 @@ export interface UserDoc extends User {
 	 * stored doc only, so it shapes your feed without showing on your profile.
 	 */
 	learnedInterests?: string[];
+	/**
+	 * Badge ids this person has already been congratulated for, so a badge
+	 * fires its celebration once and not on every page load after.
+	 */
+	seenBadges?: string[];
 	passwordHash: string;
 	/** Set by Auth0 on first login. Absent for password accounts + seed data. */
 	auth0Id?: string;
@@ -473,6 +478,16 @@ export interface RatingSummary {
 	rated: boolean;
 	/** Can the viewer rate — went to it, and it has happened? */
 	canRate: boolean;
+}
+
+/** Where someone sits among everyone who has touched grass. */
+export interface GrassRank {
+	score: number;
+	/** 1-based. Ties share a rank, so two people on 9 are both 2nd. */
+	rank: number;
+	/** People with at least one completed activity. Nobody else is in the race. */
+	total: number;
+	isTopPercent: boolean;
 }
 
 /* -------------------------------------------------------------------------- */

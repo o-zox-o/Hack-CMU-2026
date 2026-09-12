@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
+	import { celebration } from '$lib/celebrate.svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import GrassRain from '$lib/components/GrassRain.svelte';
@@ -13,6 +14,19 @@
 	/* Off-canvas nav for < lg. Closes itself whenever the route changes. */
 	let drawerOpen = $state(false);
 	afterNavigate(() => (drawerOpen = false));
+
+	/* The server hands back a badge's congratulations once and then marks it
+	   seen, so a reload won't repeat it. The guard is for this page's own
+	   lifecycle: hydration can run the effect against the same payload twice,
+	   and that shouldn't mean two parties for one badge. */
+	const announced = new Set<string>();
+	$effect(() => {
+		const fresh = data.newBadges.filter((m) => !announced.has(m));
+		if (fresh.length === 0) return;
+
+		for (const m of fresh) announced.add(m);
+		celebration.start(...fresh);
+	});
 </script>
 
 <!-- Asks the browser for a position once and stores it in the `loc` cookie. -->

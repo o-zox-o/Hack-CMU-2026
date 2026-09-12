@@ -5,6 +5,7 @@ import { campusesByDistance, radiusMiles } from '$lib/geo';
 import { listActivities } from '$lib/server/db';
 import { campusMeta, DEFAULT_RADIUS } from '$lib/types';
 import { viewerFrom } from '$lib/server/viewer';
+import { claimNewBadges } from '$lib/server/badges';
 
 export const load = (async ({ locals, url }) => {
 	const viewer = viewerFrom(locals);
@@ -14,9 +15,15 @@ export const load = (async ({ locals, url }) => {
 	   the feed, not the "what's around me" stat. */
 	const { campus, within = DEFAULT_RADIUS } = feedQueryFromUrl(url);
 
-	const open = (await listActivities({ campus, within }, viewer)).filter(
-		(a) => !a.isFull && !isPast(a.startsAt)
-	).length;
+	const [feed, newBadges] = await Promise.all([
+		listActivities({ campus, within }, viewer),
+		// Badges are earned by other people's actions (a host confirming an
+		// activity), so there's no one action to hang this off. Checked here so
+		// it lands wherever the user happens to be.
+		claimNewBadges(locals.user.id)
+	]);
+
+	const open = feed.filter((a) => !a.isFull && !isPast(a.startsAt)).length;
 
 	const miles = radiusMiles(within);
 	const openLabel = campus
@@ -27,6 +34,8 @@ export const load = (async ({ locals, url }) => {
 
 	return {
 		user: locals.user,
+		/** Congratulations lines for badges earned since the last page load. */
+		newBadges,
 		location: locals.location,
 		locationSource: locals.locationSource,
 		open,

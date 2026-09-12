@@ -4,7 +4,7 @@ import {
 	activitiesHostedBy,
 	activitiesJoinedBy,
 	getUserByHandle,
-	grassLeaderboard,
+	grassRank,
 	hostStanding
 } from '$lib/server/db';
 import { isPast } from '$lib/format';
@@ -22,10 +22,10 @@ export const load = (async ({ params, locals }) => {
 	   real numbers. What gets listed below is filtered separately: the score is
 	   public, the guest list isn't. */
 	const owner = { id: user.id, campus: user.campus, accountType: user.accountType };
-	const [hosting, joined, leaderboard, standing] = await Promise.all([
+	const [hosting, joined, rank, standing] = await Promise.all([
 		activitiesHostedBy(user.id, owner),
 		activitiesJoinedBy(user.id, owner),
-		grassLeaderboard(1),
+		grassRank(user.id),
 		hostStanding(user.id)
 	]);
 
@@ -41,7 +41,7 @@ export const load = (async ({ params, locals }) => {
 		profile: user,
 		stats,
 		standing,
-		isTopToucher: leaderboard[0]?.userId === user.id && leaderboard[0].score > 0,
+		rank,
 		upcoming: visible
 			.filter((a) => !isPast(a.startsAt))
 			.sort((a, b) => a.startsAt.localeCompare(b.startsAt)),

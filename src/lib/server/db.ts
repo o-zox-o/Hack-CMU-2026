@@ -50,6 +50,8 @@ export const {
 	activitiesHostedBy,
 	activitiesJoinedBy,
 	grassLeaderboard,
+	grassRank,
+	markBadgesSeen,
 	createActivity,
 	updateActivity,
 	completeActivity,

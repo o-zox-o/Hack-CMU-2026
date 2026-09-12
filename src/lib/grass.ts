@@ -106,19 +106,25 @@ export interface Badge {
 
 export interface BadgeContext {
 	stats: GrassStats;
-	/** True when this person tops the leaderboard. */
-	isTopToucher?: boolean;
+	/** True when this person is in the top slice of grass touchers. */
+	isTopPercent?: boolean;
 }
 
-const RULES: { badge: Badge; earned: (c: BadgeContext) => boolean }[] = [
+/**
+ * `standing` marks a badge that reflects where you are right now rather than
+ * something you did once. It can be lost when other people catch up, so it is
+ * never congratulated and never offered as the next one to chase.
+ */
+const RULES: { badge: Badge; standing?: boolean; earned: (c: BadgeContext) => boolean }[] = [
 	{
 		badge: {
 			id: 'top-toucher',
 			label: 'Top grass toucher',
-			blurb: 'More activities than anyone else',
+			blurb: 'In the top 1% of everyone touching grass',
 			icon: 'trophy'
 		},
-		earned: (c) => Boolean(c.isTopToucher) && c.stats.score > 0
+		standing: true,
+		earned: (c) => Boolean(c.isTopPercent) && c.stats.score > 0
 	},
 	{
 		badge: {
@@ -173,9 +179,41 @@ export function earnedBadges(context: BadgeContext): Badge[] {
 	return RULES.filter((r) => r.earned(context)).map((r) => r.badge);
 }
 
+/**
+ * The ones you keep. These depend only on your own record, so they can be
+ * worked out without looking at anybody else, which is what makes it cheap
+ * enough to check on every page load.
+ */
+export function milestoneBadges(stats: GrassStats): Badge[] {
+	return RULES.filter((r) => !r.standing && r.earned({ stats })).map((r) => r.badge);
+}
+
 /** The nearest badge still to earn, for a "keep going" nudge. */
 export function nextBadge(context: BadgeContext): Badge | null {
-	return RULES.find((r) => !r.earned(context) && r.badge.id !== 'top-toucher')?.badge ?? null;
+	return RULES.find((r) => !r.standing && !r.earned(context))?.badge ?? null;
+}
+
+/** The line that goes in the congratulations when one lands. */
+export function badgeMessage(badge: Badge, score: number): string {
+	return `Congrats, you earned ${badge.label}! You've touched grass ${score} ${
+		score === 1 ? 'time' : 'times'
+	}.`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Standing                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** The slice that counts as "top". */
+export const TOP_SLICE = 0.01;
+
+/**
+ * How many people are in that slice. Always at least one, so the leader still
+ * stands out before the app has a hundred users: 1% of nine people is nobody,
+ * which would make the badge unreachable for the whole of a demo.
+ */
+export function topSliceSize(total: number): number {
+	return Math.max(1, Math.ceil(total * TOP_SLICE));
 }
 
 /* -------------------------------------------------------------------------- */

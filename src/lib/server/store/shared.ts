@@ -7,6 +7,7 @@
 import { perPersonCents } from '$lib/format';
 import { campusesWithin, distanceToCampus } from '$lib/geo';
 import { interleaveWildcards, matchPercent, rankByRelevance, seededShuffle } from '$lib/matching';
+import { topSliceSize } from '$lib/grass';
 import {
 	BAD_SCORE,
 	CATEGORY_INTERESTS,
@@ -21,6 +22,7 @@ import type {
 	Activity,
 	ActivityPatch,
 	ActivityView,
+	GrassRank,
 	Comment,
 	CommentView,
 	FeedQuery,
@@ -329,6 +331,27 @@ export function hostStandingFrom(hosted: number, averages: number[]): HostStandi
 				: null,
 		warned: poorlyRated >= WARNING_THRESHOLD
 	};
+}
+
+/* ---- grass standing ---------------------------------------------------------- */
+
+/**
+ * Turn a full table of scores into one person's placing. Shared so both
+ * backends rank identically: they differ in how they count, not in what
+ * counting means.
+ *
+ * Ties share a rank (competition ranking), so a run of equal scores can't
+ * push someone out of the top slice on an arbitrary tiebreak.
+ */
+export function rankFrom(scores: { userId: string; score: number }[], userId: string): GrassRank {
+	const mine = scores.find((s) => s.userId === userId)?.score ?? 0;
+	const total = scores.filter((s) => s.score > 0).length;
+
+	if (mine === 0) return { score: 0, rank: 0, total, isTopPercent: false };
+
+	const ahead = scores.filter((s) => s.score > mine).length;
+	const rank = ahead + 1;
+	return { score: mine, rank, total, isTopPercent: rank <= topSliceSize(total) };
 }
 
 /* ---- feed filtering ------------------------------------------------------------ */

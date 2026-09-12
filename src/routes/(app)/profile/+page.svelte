@@ -5,6 +5,7 @@
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
 	import InterestPicker from '$lib/components/InterestPicker.svelte';
 	import Garden from '$lib/components/Garden.svelte';
+	import TopToucherBadge from '$lib/components/TopToucherBadge.svelte';
 	import { earnedBadges, grassStats, nextBadge } from '$lib/grass';
 	import { campusMeta, isStudent } from '$lib/types';
 
@@ -15,7 +16,7 @@
 	let joinedYear = $derived(new Date(user.joinedAt).getFullYear());
 
 	let stats = $derived(grassStats(data.hosting, data.joined));
-	let badgeContext = $derived({ stats, isTopToucher: data.isTopToucher });
+	let badgeContext = $derived({ stats, isTopPercent: data.rank.isTopPercent });
 	let badges = $derived(earnedBadges(badgeContext));
 	let upcomingBadge = $derived(nextBadge(badgeContext));
 </script>
@@ -35,7 +36,10 @@
 					<Avatar {user} size="lg" />
 				</span>
 				<div class="min-w-0 pt-7">
-					<h1 class="truncate text-fluid-xl font-extrabold text-ink">{user.name}</h1>
+					<h1 class="flex flex-wrap items-center gap-2 text-fluid-xl font-extrabold text-ink">
+						<span class="truncate">{user.name}</span>
+						<TopToucherBadge rank={data.rank} mine />
+					</h1>
 					<p class="flex flex-wrap items-center gap-x-1.5 text-fluid-xs text-ink-muted">
 						<span>@{user.handle}</span>
 						<span aria-hidden="true">·</span>

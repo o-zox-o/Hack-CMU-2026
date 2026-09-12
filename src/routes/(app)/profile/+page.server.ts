@@ -4,7 +4,7 @@ import { clearSessionCookie } from '$lib/server/auth';
 import {
 	activitiesHostedBy,
 	activitiesJoinedBy,
-	grassLeaderboard,
+	grassRank,
 	hostStanding,
 	updateProfile
 } from '$lib/server/db';
@@ -13,10 +13,10 @@ import { viewerFrom } from '$lib/server/viewer';
 
 export const load = (async ({ locals }) => {
 	const viewer = viewerFrom(locals);
-	const [hosting, joined, leaderboard, standing] = await Promise.all([
+	const [hosting, joined, rank, standing] = await Promise.all([
 		activitiesHostedBy(locals.user.id, viewer),
 		activitiesJoinedBy(locals.user.id, viewer),
-		grassLeaderboard(1),
+		grassRank(locals.user.id),
 		hostStanding(locals.user.id)
 	]);
 
@@ -28,8 +28,8 @@ export const load = (async ({ locals }) => {
 		joined,
 		learned,
 		standing,
-		/** Nobody tops an empty board, so a 0-score leader doesn't count. */
-		isTopToucher: leaderboard[0]?.userId === locals.user.id && leaderboard[0].score > 0
+		/** Placing among everyone who has touched grass, for the top 1% badge. */
+		rank
 	};
 }) satisfies PageServerLoad;
 

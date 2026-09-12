@@ -25,6 +25,7 @@ import {
 	hostStandingFrom,
 	isListed,
 	needsApproval,
+	rankFrom,
 	ratingSummary,
 	handleBase,
 	newActivityDoc,
@@ -220,6 +221,28 @@ export function createMemoryStore(): Store {
 				.map(([userId, score]) => ({ userId, score }))
 				.sort((a, b) => b.score - a.score || a.userId.localeCompare(b.userId))
 				.slice(0, limit);
+		},
+
+		async grassRank(userId) {
+			const counts = new Map<string, number>();
+			for (const doc of state.users.values()) counts.set(doc.id, 0);
+			for (const a of state.activities.values()) {
+				if (!a.completedAt) continue;
+				for (const m of a.memberIds) counts.set(m, (counts.get(m) ?? 0) + 1);
+			}
+			return rankFrom(
+				[...counts.entries()].map(([id, score]) => ({ userId: id, score })),
+				userId
+			);
+		},
+
+		async markBadgesSeen(userId, badgeIds) {
+			const doc = state.users.get(userId);
+			if (!doc) return [];
+			const seen = new Set(doc.seenBadges ?? []);
+			const fresh = badgeIds.filter((id) => !seen.has(id));
+			if (fresh.length > 0) doc.seenBadges = [...seen, ...fresh];
+			return fresh;
 		},
 
 		async createActivity(input, hostId) {

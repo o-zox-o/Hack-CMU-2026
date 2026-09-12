@@ -4,6 +4,7 @@ import type {
 	ActivityView,
 	CampusId,
 	CommentVisibility,
+	GrassRank,
 	HostStanding,
 	CommentView,
 	FeedQuery,
@@ -123,6 +124,15 @@ export interface Store {
 	 * toucher" badge, so it counts the same things the garden does.
 	 */
 	grassLeaderboard(limit?: number): Promise<{ userId: string; score: number }[]>;
+	/** Where one person places among everyone who has touched grass. */
+	grassRank(userId: string): Promise<GrassRank>;
+	/**
+	 * Record badges as congratulated, returning only the ones that weren't
+	 * already. The caller shows a celebration for what comes back, so this has
+	 * to be the thing that decides: two tabs loading at once must not both
+	 * think they're first.
+	 */
+	markBadgesSeen(userId: string, badgeIds: string[]): Promise<string[]>;
 
 	createActivity(input: NewActivityInput, hostId: string): Promise<ActivityView>;
 	/**

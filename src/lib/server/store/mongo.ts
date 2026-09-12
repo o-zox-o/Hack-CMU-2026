@@ -34,6 +34,7 @@ import {
 	newActivityDoc,
 	newCommentDoc,
 	newUserDoc,
+	rankFrom,
 	referencedUserIds,
 	searchAndSort,
 	toCommentView,
@@ -380,6 +381,42 @@ export function createMongoStore(uri: string, dbName: string): Store {
 					{ $project: { _id: 0, userId: '$_id', score: 1 } }
 				])
 				.toArray();
+		},
+
+		async grassRank(userId) {
+			// Small tables, so pull the whole column and rank in process rather
+			// than trying to express competition ranking in the pipeline.
+			const scores = await (
+				await activities()
+			)
+				.aggregate<{ userId: string; score: number }>([
+					{ $match: { completedAt: { $exists: true, $ne: null } } },
+					{ $unwind: '$memberIds' },
+					{ $group: { _id: '$memberIds', score: { $sum: 1 } } },
+					{ $project: { _id: 0, userId: '$_id', score: 1 } }
+				])
+				.toArray();
+			return rankFrom(scores, userId);
+		},
+
+		/**
+		 * One conditional update per badge, and modifiedCount is the answer:
+		 * the filter only matches while the id is absent, so exactly one caller
+		 * can flip it. A read-then-write would let two tabs both celebrate.
+		 * The list is one or two ids in practice, so the loop is free.
+		 */
+		async markBadgesSeen(userId, badgeIds) {
+			const col = await users();
+			const claimed: string[] = [];
+
+			for (const id of badgeIds) {
+				const res = await col.updateOne(
+					{ _id: userId, seenBadges: { $ne: id } },
+					{ $addToSet: { seenBadges: id } }
+				);
+				if (res.modifiedCount === 1) claimed.push(id);
+			}
+			return claimed;
 		},
 
 		async createActivity(input, hostId) {
