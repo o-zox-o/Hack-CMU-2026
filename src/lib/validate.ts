@@ -7,7 +7,13 @@
  */
 
 import { parseCents } from './format';
-import { isCampusId, isCategoryId, type CostBasis, type NewActivityInput } from './types';
+import {
+	isCampusId,
+	isCategoryId,
+	type CostBasis,
+	type NewActivityInput,
+	type SignupInput
+} from './types';
 
 export const MAX_SPOTS = 20;
 const MAX_TITLE = 120;
@@ -87,4 +93,43 @@ export function validateNewActivity(source: FormData | Record<string, unknown>):
 			costBasis
 		}
 	};
+}
+
+/* -------------------------------------------------------------------------- */
+/* Auth                                                                        */
+/* -------------------------------------------------------------------------- */
+
+export type AuthErrors = Partial<Record<keyof SignupInput | 'form', string>>;
+const MIN_PASSWORD = 8;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function validateLogin(
+	form: FormData
+): { ok: true; email: string; password: string } | { ok: false; errors: AuthErrors } {
+	const email = str(form, 'email').toLowerCase();
+	const password = typeof form.get('password') === 'string' ? (form.get('password') as string) : '';
+	const errors: AuthErrors = {};
+	if (!EMAIL_RE.test(email)) errors.email = 'Enter your email address.';
+	if (password.length === 0) errors.password = 'Enter your password.';
+	if (Object.keys(errors).length) return { ok: false, errors };
+	return { ok: true, email, password };
+}
+
+export function validateSignup(
+	form: FormData
+): { ok: true; value: SignupInput } | { ok: false; errors: AuthErrors } {
+	const name = str(form, 'name');
+	const email = str(form, 'email').toLowerCase();
+	const campus = str(form, 'campus');
+	const password = typeof form.get('password') === 'string' ? (form.get('password') as string) : '';
+	const errors: AuthErrors = {};
+
+	if (name.length < 2) errors.name = 'What should people call you?';
+	else if (name.length > 60) errors.name = 'Keep it under 60 characters.';
+	if (!EMAIL_RE.test(email)) errors.email = 'Enter a valid email address.';
+	if (!isCampusId(campus)) errors.campus = 'Pick your campus.';
+	if (password.length < MIN_PASSWORD) errors.password = `At least ${MIN_PASSWORD} characters.`;
+
+	if (Object.keys(errors).length) return { ok: false, errors };
+	return { ok: true, value: { name, email, campus: campus as SignupInput['campus'], password } };
 }

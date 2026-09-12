@@ -14,20 +14,23 @@ import {
 	type CommentView,
 	type FeedQuery,
 	type NewActivityInput,
-	type User
+	type SignupInput,
+	type User,
+	type UserDoc
 } from '$lib/types';
 import { perPersonCents } from '$lib/format';
+import { hashPassword, verifyPassword } from './auth';
 
 /* -------------------------------------------------------------------------- */
 /* Store                                                                       */
 /* -------------------------------------------------------------------------- */
 
 /** Bump this whenever you edit the seed data below so a running dev server re-seeds. */
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 
 interface Store {
 	version: number;
-	users: Map<string, User>;
+	users: Map<string, UserDoc>;
 	activities: Map<string, Activity>;
 	comments: Comment[];
 }
@@ -36,12 +39,18 @@ declare global {
 	var __tagalongStore: Store | undefined;
 }
 
+/** Password for every seeded account — shown on the login page in dev. */
+export const DEMO_PASSWORD = 'tagalong';
+
 /** Minutes/hours/days from "now", so seed data never goes stale. */
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 const hoursAgo = (h: number) => hoursFromNow(-h);
 
 function seed(): Store {
-	const users: User[] = [
+	/** Every seeded account signs in with this password. */
+	const demoHash = hashPassword(DEMO_PASSWORD);
+
+	const users: UserDoc[] = [
 		{
 			id: 'u_mei',
 			name: 'Mei Tanaka',
@@ -49,6 +58,8 @@ function seed(): Store {
 			campus: 'cmu',
 			bio: 'Junior in ECE. Perpetually organizing the Costco run.',
 			avatarSeed: 0,
+			email: 'mei@andrew.cmu.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 240)
 		},
 		{
@@ -58,6 +69,8 @@ function seed(): Store {
 			campus: 'cmu',
 			bio: 'Design major. Will absolutely split your Spotify.',
 			avatarSeed: 1,
+			email: 'satsuki@andrew.cmu.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 190)
 		},
 		{
@@ -67,6 +80,8 @@ function seed(): Store {
 			campus: 'pitt',
 			bio: 'Bio pre-med, lives in Oakland, has a car.',
 			avatarSeed: 2,
+			email: 'kanta@pitt.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 150)
 		},
 		{
@@ -76,6 +91,8 @@ function seed(): Store {
 			campus: 'cmu',
 			bio: 'CS + stats. Optimizing my grocery budget like a DP problem.',
 			avatarSeed: 3,
+			email: 'nori@andrew.cmu.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 95)
 		},
 		{
@@ -85,6 +102,8 @@ function seed(): Store {
 			campus: 'chatham',
 			bio: 'Env science. Carpool evangelist.',
 			avatarSeed: 4,
+			email: 'pria@chatham.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 70)
 		},
 		{
@@ -94,6 +113,8 @@ function seed(): Store {
 			campus: 'duquesne',
 			bio: 'Business. Always three people short of a delivery minimum.',
 			avatarSeed: 5,
+			email: 'dev@duq.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 40)
 		},
 		{
@@ -103,6 +124,8 @@ function seed(): Store {
 			campus: 'pitt',
 			bio: 'Materials sci. IKEA trip enthusiast.',
 			avatarSeed: 6,
+			email: 'lin@pitt.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 30)
 		},
 		{
@@ -112,6 +135,8 @@ function seed(): Store {
 			campus: 'cmu',
 			bio: 'Drama. Needs a ride to the airport roughly always.',
 			avatarSeed: 7,
+			email: 'theo@andrew.cmu.edu',
+			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 12)
 		}
 	];
@@ -350,16 +375,20 @@ function seed(): Store {
 if (globalThis.__tagalongStore?.version !== SEED_VERSION) globalThis.__tagalongStore = seed();
 const store: Store = globalThis.__tagalongStore;
 
-/** The signed-in user while auth is stubbed. See hooks.server.ts. */
-export const DEMO_USER_ID = 'u_mei';
-
 /* -------------------------------------------------------------------------- */
 /* Serialisation — the one place the stored shape becomes the wire shape        */
 /* -------------------------------------------------------------------------- */
 
+/** Strip credentials — the only way a stored user becomes a public one. */
+function toUser(doc: UserDoc): User {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const { email, passwordHash, ...user } = doc;
+	return user;
+}
+
 function requireUser(id: string): User {
 	const user = store.users.get(id);
-	if (user) return user;
+	if (user) return toUser(user);
 	// Defensive: a deleted user should not blank out a whole feed.
 	return {
 		id,
@@ -413,11 +442,59 @@ function toCommentView(comment: Comment): CommentView {
 /* -------------------------------------------------------------------------- */
 
 export function getUser(id: string): User | null {
-	return store.users.get(id) ?? null;
+	const doc = store.users.get(id);
+	return doc ? toUser(doc) : null;
 }
 
 export function listUsers(): User[] {
-	return [...store.users.values()];
+	return [...store.users.values()].map(toUser);
+}
+
+function findUserByEmail(email: string): UserDoc | null {
+	const needle = email.toLowerCase();
+	return [...store.users.values()].find((u) => u.email === needle) ?? null;
+}
+
+/** Email + password -> the user, or null. Same null for unknown email and wrong password. */
+export function verifyLogin(email: string, password: string): User | null {
+	const doc = findUserByEmail(email);
+	if (!doc || !verifyPassword(password, doc.passwordHash)) return null;
+	return toUser(doc);
+}
+
+export type SignupResult = { ok: true; user: User } | { ok: false; reason: 'email-taken' };
+
+/**
+ * In Mongo: a unique index on `email` and insertOne inside try/catch for the
+ * duplicate-key error, rather than find-then-insert.
+ */
+export function createUser(input: SignupInput): SignupResult {
+	if (findUserByEmail(input.email)) return { ok: false, reason: 'email-taken' };
+
+	// Handle from the email's local part; bump a suffix until it's unique.
+	const base =
+		input.email
+			.split('@')[0]
+			.toLowerCase()
+			.replace(/[^a-z0-9]/g, '')
+			.slice(0, 20) || 'user';
+	let handle = base;
+	for (let n = 2; [...store.users.values()].some((u) => u.handle === handle); n++)
+		handle = `${base}${n}`;
+
+	const doc: UserDoc = {
+		id: `u_${crypto.randomUUID().slice(0, 8)}`,
+		name: input.name,
+		handle,
+		email: input.email.toLowerCase(),
+		passwordHash: hashPassword(input.password),
+		campus: input.campus,
+		bio: '',
+		avatarSeed: store.users.size % 8,
+		joinedAt: new Date().toISOString()
+	};
+	store.users.set(doc.id, doc);
+	return { ok: true, user: toUser(doc) };
 }
 
 /* -------------------------------------------------------------------------- */

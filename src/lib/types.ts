@@ -93,6 +93,7 @@ export function isCampusId(value: unknown): value is CampusId {
 /* Users                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** Public shape — safe to put in a page payload or show to other users. */
 export interface User {
 	id: string;
 	name: string;
@@ -102,6 +103,23 @@ export interface User {
 	/** Index into the avatar palette — keeps seeded users visually distinct. */
 	avatarSeed: number;
 	joinedAt: string;
+}
+
+/**
+ * Stored shape — the `users` collection. Server-only. `toUser()` in db.ts
+ * strips the credentials before anything reaches a page.
+ */
+export interface UserDoc extends User {
+	email: string;
+	/** From hashPassword() in $lib/server/auth.ts. Never the raw password. */
+	passwordHash: string;
+}
+
+export interface SignupInput {
+	name: string;
+	email: string;
+	campus: CampusId;
+	password: string;
 }
 
 /* -------------------------------------------------------------------------- */

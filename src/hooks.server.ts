@@ -1,22 +1,34 @@
-import type { Handle } from '@sveltejs/kit';
-import { DEMO_USER_ID, getUser, listUsers } from '$lib/server/db';
+import { json, redirect, type Handle } from '@sveltejs/kit';
+import { readSessionToken, SESSION_COOKIE } from '$lib/server/auth';
+import { getUser } from '$lib/server/db';
 
 /**
- * Auth stub.
+ * Resolve the session cookie to a user on every request.
  *
- * Every request gets a signed-in user so the whole app is usable before auth
- * exists. A `demo_user` cookie lets you switch identity while building — handy
- * for testing "join" from a second account without a second browser:
- *
- *   document.cookie = 'demo_user=u_theo; path=/'
- *
- * REPLACE ME with a real session lookup (Auth0 etc). The only contract the rest
- * of the app relies on is that `locals.user` is set before any load or action
- * runs, so swapping this out touches exactly this file.
+ *   signed in  -> locals.user is set; /login bounces to the feed
+ *   signed out -> API routes get a 401; every page except /login redirects
+ *                 there, remembering where you were headed in ?next=
  */
 export const handle: Handle = async ({ event, resolve }) => {
-	const cookieId = event.cookies.get('demo_user');
-	event.locals.user = getUser(cookieId ?? '') ?? getUser(DEMO_USER_ID) ?? listUsers()[0];
+	const token = event.cookies.get(SESSION_COOKIE);
+	const userId = token ? readSessionToken(token) : null;
+	const user = userId ? getUser(userId) : null;
+
+	const path = event.url.pathname;
+	const isLoginPage = path === '/login';
+
+	if (!user) {
+		if (path.startsWith('/api/')) return json({ error: 'unauthorized' }, { status: 401 });
+		if (!isLoginPage) {
+			const next = event.url.pathname + event.url.search;
+			redirect(303, next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`);
+		}
+	} else if (isLoginPage) {
+		redirect(303, '/');
+	}
+
+	// Null only on /login, which never reads it; every other route is guarded above.
+	event.locals.user = user!;
 
 	return resolve(event);
 };
