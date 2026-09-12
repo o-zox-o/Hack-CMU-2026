@@ -51,7 +51,7 @@
 	<div class="leaf-card px-4 py-3">
 		<h1 class="text-fluid-xl font-extrabold text-ink">Post an activity</h1>
 		<p class="mt-0.5 text-fluid-sm text-ink-soft">
-			Something you're doing anyway that other people could split.
+			Plan a hangout, trip, errand, or activity and find people around you to join.
 		</p>
 	</div>
 
