@@ -14,10 +14,10 @@ SvelteKit · Svelte 5 · Tailwind 4 · TypeScript · MongoDB
 
 ### Demo login
 
-| | |
-|---|---|
-| Email | `mei@andrew.cmu.edu` |
-| Password | `tagalong` |
+|          |                      |
+| -------- | -------------------- |
+| Email    | `mei@andrew.cmu.edu` |
+| Password | `tagalong`           |
 
 Every seeded account uses the same password. Other useful logins:
 
@@ -39,7 +39,7 @@ Or create a new account from Sign up (`.edu` emails). New accounts get a short i
 
 ## What it is
 
-College group chats are how people make plans *and* how they never make it out. tagalong is the public version:
+College group chats are how people make plans _and_ how they never make it out. tagalong is the public version:
 
 - **Hangouts first** — karaoke, hikes, game nights, watch parties, or bulk buys.
 - **Find similar people, not just spots** — interest survey on signup, match % on the feed, so you find folks you’d actually spend an afternoon with.
@@ -49,12 +49,12 @@ College group chats are how people make plans *and* how they never make it out. 
 
 ## Touch grass (gamification)
 
-| | |
-|---|---|
-| Score | Hosted + joined activities |
-| Garden | Grows from bare patch -> seedling -> sprouting -> lawn -> in bloom -> wildflower meadow |
+|        |                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------ |
+| Score  | Hosted + joined activities                                                                                   |
+| Garden | Grows from bare patch -> seedling -> sprouting -> lawn -> in bloom -> wildflower meadow                      |
 | Badges | First blade, Regular, Certified outside, Green thumb (host), Actually outside (hangouts), plus category ones |
-| Live | Grass rain + “you touched grass” when you join |
+| Live   | Grass rain + “you touched grass” when you join                                                               |
 
 Open **Profile** on the Demo account to see a garden that’s already growing.
 
@@ -62,11 +62,11 @@ Open **Profile** on the Demo account to see a garden that’s already growing.
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| UI | Svelte 5 (runes) + Tailwind 4 |
-| App / API | SvelteKit 2 |
-| Data | MongoDB Atlas |
-| Auth | Auth0 |
-| Matching | Interests + campus + budget + distance |
-| Email | Optional [Resend](https://resend.com) on join |
+| Layer     | Choice                                        |
+| --------- | --------------------------------------------- |
+| UI        | Svelte 5 (runes) + Tailwind 4                 |
+| App / API | SvelteKit 2                                   |
+| Data      | MongoDB Atlas                                 |
+| Auth      | Auth0                                         |
+| Matching  | Interests + campus + budget + distance        |
+| Email     | Optional [Resend](https://resend.com) on join |

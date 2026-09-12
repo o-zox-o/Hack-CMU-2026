@@ -22,7 +22,11 @@
 	const POLL_MS = 10_000;
 	const PUSH_MS = 15_000;
 
-	let sharing = $state(false);
+	/**
+	 * 'locating' is the gap between tapping the button and the browser handing
+	 * back a fix, which can be several seconds and used to show nothing at all.
+	 */
+	let phase = $state<'off' | 'locating' | 'live'>('off');
 	let people = $state<LiveLocationView[]>([]);
 	let mine = $state<{ lat: number; lng: number } | null>(null);
 	let error = $state<string | null>(null);
@@ -68,7 +72,7 @@
 
 		const poll = setInterval(refresh, POLL_MS);
 		const push = setInterval(() => {
-			if (sharing) pushPosition();
+			if (phase === 'live') pushPosition();
 		}, PUSH_MS);
 		refresh();
 
@@ -77,7 +81,7 @@
 			clearInterval(poll);
 			clearInterval(push);
 			// Leaving stops it now rather than waiting for the point to expire.
-			if (sharing) void fetch(`/activities/${activity.id}/where`, { method: 'DELETE' });
+			if (phase !== 'off') void fetch(`/activities/${activity.id}/where`, { method: 'DELETE' });
 			map?.remove();
 			map = null;
 		};
@@ -191,7 +195,7 @@
 	function pushPosition() {
 		if (!('geolocation' in navigator)) {
 			error = 'This browser has no location support.';
-			sharing = false;
+			phase = 'off';
 			return;
 		}
 
@@ -211,31 +215,31 @@
 
 				if (!res.ok) {
 					error = (await res.json().catch(() => ({}))).error ?? 'Could not share your location.';
-					sharing = false;
+					phase = 'off';
 					return;
 				}
 				error = null;
+				phase = 'live';
 				await refresh();
 			},
 			() => {
-				error = 'Location is blocked in your browser settings.';
-				sharing = false;
+				error =
+					'Could not get your location. Check that location is allowed for this site, then try again.';
+				phase = 'off';
 			},
 			{ enableHighAccuracy: true, maximumAge: 5000, timeout: 8000 }
 		);
 	}
 
 	function start() {
-		busy = true;
 		error = null;
-		sharing = true;
+		phase = 'locating';
 		pushPosition();
-		busy = false;
 	}
 
 	async function stop() {
 		busy = true;
-		sharing = false;
+		phase = 'off';
 		mine = null;
 		await fetch(`/activities/${activity.id}/where`, { method: 'DELETE' });
 		await refresh();
@@ -246,14 +250,38 @@
 <section class="leaf-card overflow-hidden">
 	<div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
 		<div class="min-w-0">
-			<h2 class="flex items-center gap-1.5 text-fluid-sm font-extrabold text-ink">
-				<Icon name="pin" size={15} class="text-brand-ink" /> Where everyone is
+			<h2 class="flex flex-wrap items-center gap-x-2 gap-y-1 text-fluid-sm font-extrabold text-ink">
+				<span class="flex items-center gap-1.5">
+					<Icon name="pin" size={15} class="text-brand-ink" /> Where everyone is
+				</span>
+
+				<!-- Whether it's actually on, without having to infer it from the map. -->
+				{#if phase === 'live'}
+					<span
+						class="inline-flex items-center gap-1 rounded-full bg-brand-wash px-2 py-0.5 text-fluid-xs font-bold text-brand-ink"
+					>
+						<span class="live-dot"></span> Live
+					</span>
+				{:else if phase === 'locating'}
+					<span
+						class="inline-flex items-center gap-1 rounded-full bg-surface-sunk px-2 py-0.5 text-fluid-xs font-bold text-ink-soft"
+					>
+						<span class="live-dot is-waiting"></span> Finding you
+					</span>
+				{/if}
 			</h2>
+
 			<p class="mt-0.5 text-fluid-xs text-ink-muted">
-				{#if sharing}
-					You're on the map. Sharing stops on its own at {formatClock(activity.sharingClosesAt)}.
+				{#if phase === 'locating'}
+					Waiting for your browser. Allow location if it asks.
+				{:else if phase === 'live'}
+					You're on the map. It stops on its own at {formatClock(activity.sharingClosesAt)}.
+				{:else if activity.spotsTaken === 1}
+					Nobody else has joined yet, so there's no one to share with. It stops at {formatClock(
+						activity.sharingClosesAt
+					)}.
 				{:else}
-					Only the {activity.spotsTaken} people in this activity can see it, and only until {formatClock(
+					Only the {activity.spotsTaken} people in this activity can see it, until {formatClock(
 						activity.sharingClosesAt
 					)}.
 				{/if}
@@ -261,7 +289,11 @@
 		</div>
 
 		<div class="ml-auto">
-			{#if sharing}
+			{#if phase === 'locating'}
+				<button type="button" class="btn btn-ghost" onclick={stop}>
+					<Icon name="clock" size={14} /> Locating…
+				</button>
+			{:else if phase === 'live'}
 				<button type="button" class="btn btn-ghost" onclick={stop} disabled={busy}>
 					<Icon name="close" size={14} strokeWidth={3} /> Stop sharing
 				</button>
@@ -308,7 +340,11 @@
 			</li>
 		{:else}
 			<li class="px-4 py-3 text-fluid-xs text-ink-muted">
-				Nobody is sharing yet.{sharing ? '' : ' Be the first.'}
+				{#if phase === 'locating'}
+					Getting your location…
+				{:else}
+					Nobody is sharing yet. Be the first.
+				{/if}
 			</li>
 		{/each}
 	</ul>
@@ -321,6 +357,34 @@
 </section>
 
 <style>
+	.live-dot {
+		height: 7px;
+		width: 7px;
+		border-radius: 9999px;
+		background: currentColor;
+		animation: pulse 1.6s ease-in-out infinite;
+	}
+
+	.live-dot.is-waiting {
+		animation-duration: 0.9s;
+	}
+
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.25;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+		}
+	}
+
 	/* Leaflet builds the marker from an HTML string, so the pin can't be a
 	   component and its styles have to be global to reach inside it. */
 	:global(.pin-wrap) {
