@@ -1,7 +1,7 @@
 // src/lib/matching.ts
 import type { User, ActivityView, Activity } from './types';
 
-// 1. Jaccard Similarity for Tag/Interest Sets - good score is usually 70%
+// 1. Jaccard Similarity for Tag/Interest Sets
 export function jaccardSimilarity(arrA: string[], arrB: string[]): number {
   if (!arrA.length || !arrB.length) return 0;
   const setA = new Set(arrA.map((s) => s.toLowerCase()));
@@ -15,15 +15,14 @@ export function jaccardSimilarity(arrA: string[], arrB: string[]): number {
 export function calculateUserFit(applicant: User, host: User): number {
   const interestScore = jaccardSimilarity(applicant.interests, host.interests);
 
-  // University affinity
-  const sameSchool =
-    applicant.university.trim().toLowerCase() === host.university.trim().toLowerCase();
+  // University affinity using CampusId ('cmu', 'pitt', etc.)
+  const sameSchool = applicant.campus === host.campus;
   const schoolBonus = sameSchool ? 1.0 : 0.7;
 
   return 0.75 * interestScore + 0.25 * schoolBonus;
 }
 
-// 3. Activity Fit (Handles ActivityView from the UI feed)
+// 3. Activity Fit (Handles ActivityView from the UI feed or raw Activity)
 export function calculateActivityFit(
   applicant: User,
   activity: ActivityView | Activity,
@@ -31,29 +30,21 @@ export function calculateActivityFit(
 ): number {
   // Hard Constraint: Full capacity check
   if ('isFull' in activity && activity.isFull) return 0;
-  if ('maxMembers' in activity && activity.maxMembers !== undefined) {
-    if (activity.memberIds.length >= activity.maxMembers) return 0;
-  }
+  if ('memberIds' in activity && activity.memberIds.length >= activity.spots) return 0;
 
   // Soft Score A: Category or Tag Overlap
-  let interestScore = 0;
-  if ('interests' in activity && activity.interests?.length) {
-    interestScore = jaccardSimilarity(applicant.interests, activity.interests);
-  } else if ('category' in activity) {
-    // Check if user interests include the category name (e.g., 'food', 'rides')
-    const hasCategory = applicant.interests.some(
-      (i) => i.toLowerCase() === activity.category.toLowerCase()
-    );
-    interestScore = hasCategory ? 1.0 : 0.4;
-  }
+  const hasCategory = applicant.interests.some(
+    (i) => i.toLowerCase() === activity.category.toLowerCase()
+  );
+  const interestScore = hasCategory ? 1.0 : 0.4;
 
   // Soft Score B: Budget alignment
   if (applicantBudgetDollars === undefined || applicantBudgetDollars === null) {
     return interestScore;
   }
 
-  // Normalize cost into dollars
-  const costDollars = 'costCents' in activity ? activity.costCents / 100 : activity.budget;
+  // Normalize integer cents into dollars
+  const costDollars = activity.costCents / 100;
 
   let budgetScore = 1.0;
   if (costDollars > 0) {
