@@ -3,6 +3,7 @@
 	import type { User } from '$lib/types';
 	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
+	import GrassIcon from './GrassIcon.svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 
 	interface Props {
@@ -31,7 +32,7 @@
 			<span
 				class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand text-on-brand"
 			>
-				<Icon name="leaf" size={18} strokeWidth={2.25} />
+				<GrassIcon size={18} strokeWidth={2.25} />
 			</span>
 			<span class="hidden text-fluid-lg font-extrabold tracking-tight text-ink sm:inline">
 				tagalong

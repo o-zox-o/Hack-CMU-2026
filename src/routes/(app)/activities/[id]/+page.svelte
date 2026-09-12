@@ -4,6 +4,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import JoinButton from '$lib/components/JoinButton.svelte';
+	import RatingBox from '$lib/components/RatingBox.svelte';
 	import SpotsMeter from '$lib/components/SpotsMeter.svelte';
 	import {
 		formatCents,
@@ -185,6 +186,8 @@
 				</div>
 			{/if}
 
+			<RatingBox {activity} />
+
 			<div class="mt-5">
 				<JoinButton {activity} block />
 			</div>
@@ -194,8 +197,8 @@
 	<!-- Comments -->
 	<section id="comments" class="leaf-card p-4 sm:p-5">
 		<h2 class="text-fluid-lg font-extrabold text-ink">
-			{data.comments.length}
-			{data.comments.length === 1 ? 'comment' : 'comments'}
+			{data.comments.visible.length}
+			{data.comments.visible.length === 1 ? 'comment' : 'comments'}
 		</h2>
 
 		<form
@@ -231,9 +234,17 @@
 			</div>
 		</form>
 
-		{#if data.comments.length > 0}
+		{#if data.comments.hidden > 0}
+			<p class="mt-3 rounded-lg bg-surface-sunk px-3 py-2 text-fluid-xs text-ink-muted">
+				{data.comments.hidden}
+				{data.comments.hidden === 1 ? 'comment is' : 'comments are'} hidden — some people only share with
+				whoever joined. Join to see {data.comments.hidden === 1 ? 'it' : 'them'}.
+			</p>
+		{/if}
+
+		{#if data.comments.visible.length > 0}
 			<ol class="mt-4 divide-y divide-hedge">
-				{#each data.comments as comment (comment.id)}
+				{#each data.comments.visible as comment (comment.id)}
 					<li class="flex gap-3 py-3">
 						<Avatar user={comment.author} />
 						<div class="min-w-0 flex-1">

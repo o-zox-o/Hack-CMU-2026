@@ -43,15 +43,6 @@
 		</li>
 		<li>
 			<a
-				href="/?free=1"
-				class="{link} {isFree && path === '/' ? active : idle}"
-				aria-current={isFree && path === '/' ? 'page' : undefined}
-			>
-				<Icon name="gift" size={18} /> Free stuff
-			</a>
-		</li>
-		<li>
-			<a
 				href="/my-activities"
 				class="{link} {path === '/my-activities' ? active : idle}"
 				aria-current={path === '/my-activities' ? 'page' : undefined}
@@ -75,6 +66,17 @@
 			Categories
 		</h2>
 		<ul class="flex flex-col gap-0.5">
+			<!-- A price filter rather than a category, but it browses the feed the
+			     same way, so it belongs with these and not with the destinations. -->
+			<li>
+				<a
+					href="/?free=1"
+					class="{link} {isFree && path === '/' ? active : idle}"
+					aria-current={isFree && path === '/' ? 'page' : undefined}
+				>
+					<Icon name="gift" size={18} /> Free stuff
+				</a>
+			</li>
 			{#each CATEGORIES as category (category.id)}
 				{@const isActive = activeCategory === category.id}
 				<li>

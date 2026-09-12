@@ -10,6 +10,8 @@ declare global {
 			 * and everything downstream keeps working.
 			 */
 			user: User;
+			/** What the feed ranks against: chosen interests plus learned ones. */
+			interests: string[];
 			/** Where the viewer is: the browser's fix if we have it, else their campus. */
 			location: LatLng;
 			locationSource: 'gps' | 'campus';
