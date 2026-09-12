@@ -3,10 +3,11 @@
  * "Pre User Registration" Action (Actions > Library > Build Custom > trigger:
  * pre-user-registration) and add it to that flow.
  *
- * Our app's /auth/callback route already rejects non-.edu emails, but that
- * only runs after Auth0 has created the account. This Action blocks
- * ineligible signups at the source, so someone can't create an account by
- * hitting Auth0's endpoints directly and skipping our app.
+ * Our own signup action (src/routes/login/+page.server.ts) already checks
+ * the domain before it ever calls Auth0's Passwordless API, so this Action
+ * is defense-in-depth at Auth0's own connection level, not the primary
+ * gate — it stops someone from creating an ineligible account by hitting
+ * Auth0's endpoints directly and skipping our app entirely.
  *
  * Deliberately just a ".edu" suffix check rather than a curated domain
  * list: .edu is a restricted TLD — Educause requires proof of accreditation

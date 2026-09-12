@@ -1,3 +1,13 @@
+/**
+ * Auth0 Passwordless Email — used only to prove a signup's email address is
+ * real and reachable before we create the account. Auth0 never sees or
+ * stores the account's password; that stays entirely in our own DB (auth.ts
+ * + db.ts), unchanged.
+ *
+ * Requires the tenant's Passwordless "Email" connection enabled for this
+ * Application (Auth0 Dashboard > Authentication > Passwordless > Email,
+ * then enable it under this app's Connections tab).
+ */
 import { env } from '$env/dynamic/private';
 
 function requireEnv(name: string): string {
@@ -6,78 +16,47 @@ function requireEnv(name: string): string {
 	return value;
 }
 
-interface TokenResponse {
-	access_token: string;
-	id_token: string;
-}
-
-export interface Auth0Profile {
-	sub: string;
-	email: string;
-	email_verified: boolean;
-	name?: string;
-	picture?: string;
-}
-
-/**
- * Builds the Auth0 Universal Login URL. `screen_hint=signup` opens straight
- * on the signup tab; Auth0 still shows login too, so this same endpoint
- * covers both.
- */
-export function getAuthorizeUrl(state: string): string {
+/** Emails a one-time code to the given address. */
+export async function startPasswordlessEmail(email: string): Promise<void> {
 	const domain = requireEnv('AUTH0_DOMAIN');
-	const params = new URLSearchParams({
-		response_type: 'code',
-		client_id: requireEnv('AUTH0_CLIENT_ID'),
-		redirect_uri: requireEnv('AUTH0_CALLBACK_URL'),
-		scope: 'openid profile email',
-		state,
-		screen_hint: 'signup'
-	});
-	return `https://${domain}/authorize?${params.toString()}`;
-}
-
-export async function exchangeCodeForTokens(code: string): Promise<TokenResponse> {
-	const domain = requireEnv('AUTH0_DOMAIN');
-	const res = await fetch(`https://${domain}/oauth/token`, {
+	const res = await fetch(`https://${domain}/passwordless/start`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
-			grant_type: 'authorization_code',
 			client_id: requireEnv('AUTH0_CLIENT_ID'),
 			client_secret: requireEnv('AUTH0_CLIENT_SECRET'),
-			code,
-			redirect_uri: requireEnv('AUTH0_CALLBACK_URL')
+			connection: 'email',
+			email,
+			send: 'code'
 		})
 	});
 
 	if (!res.ok) {
 		const body = await res.text();
-		throw new Error(`Auth0 token exchange failed (${res.status}): ${body}`);
+		throw new Error(`Auth0 passwordless start failed (${res.status}): ${body}`);
 	}
-
-	return res.json();
 }
 
-export async function getAuth0UserInfo(accessToken: string): Promise<Auth0Profile> {
+/** Returns true if `code` is the one Auth0 emailed to `email`. */
+export async function verifyPasswordlessCode(email: string, code: string): Promise<boolean> {
 	const domain = requireEnv('AUTH0_DOMAIN');
-	const res = await fetch(`https://${domain}/userinfo`, {
-		headers: { Authorization: `Bearer ${accessToken}` }
+	const res = await fetch(`https://${domain}/oauth/token`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			grant_type: 'http://auth0.com/oauth/grant-type/passwordless/otp',
+			client_id: requireEnv('AUTH0_CLIENT_ID'),
+			client_secret: requireEnv('AUTH0_CLIENT_SECRET'),
+			username: email,
+			otp: code,
+			realm: 'email',
+			scope: 'openid'
+		})
 	});
 
 	if (!res.ok) {
-		const body = await res.text();
-		throw new Error(`Auth0 userinfo failed (${res.status}): ${body}`);
+		console.error(`Auth0 passwordless verify failed (${res.status}):`, await res.text());
 	}
 
-	return res.json();
-}
-
-export function getLogoutUrl(): string {
-	const domain = requireEnv('AUTH0_DOMAIN');
-	const params = new URLSearchParams({
-		client_id: requireEnv('AUTH0_CLIENT_ID'),
-		returnTo: env.AUTH0_LOGOUT_REDIRECT_URL || '/'
-	});
-	return `https://${domain}/v2/logout?${params.toString()}`;
+	return res.ok;
 }
