@@ -4,17 +4,29 @@
  * Pure functions over the app's own types, so they run on the server (feed
  * sorting) and in the browser (showing a match badge) without a database.
  *
- * Three signals, blended:
+ * Four signals, blended:
  *   interests  what they said they're into, vs the activity's tags
+ *   category   whether the whole category is their kind of thing
  *   proximity  how far it is — a great match 100 miles away is not a match
  *   urgency    sooner is more actionable; things weeks out can wait
+ *
+ * Category counts twice over, on purpose. An activity is matched on its own
+ * tags PLUS its category's, so a post nobody tagged carefully still lands with
+ * the right people; and the category itself scores, so someone who picked
+ * "driving" sees rides they'd otherwise miss.
  *
  * Someone who skipped the survey still gets a sensible feed: the interest
  * term drops out and the other two take its place.
  */
 
 import { distanceToCampus } from './geo';
-import type { CampusId, LatLng } from './types';
+import {
+	CATEGORIES,
+	CATEGORY_INTERESTS,
+	type CampusId,
+	type CategoryId,
+	type LatLng
+} from './types';
 
 /** Overlap of two tag sets, 0–1. Order and case don't matter. */
 export function jaccardSimilarity(a: string[], b: string[]): number {
@@ -36,8 +48,30 @@ export interface MatchViewer {
 /** The parts of an activity that ranking cares about. */
 export interface MatchTarget {
 	interests: string[];
+	category: CategoryId;
 	campus: CampusId;
 	startsAt: string;
+}
+
+/**
+ * An activity's own tags plus the ones implied by its category, deduplicated.
+ * Hosts tag inconsistently — "airport runs" instead of "rides" — so the
+ * category fills the gaps.
+ */
+export function effectiveTags(target: MatchTarget): string[] {
+	return [...new Set([...target.interests, ...(CATEGORY_INTERESTS[target.category] ?? [])])];
+}
+
+/**
+ * Categories implied by someone's interests: a category counts if the viewer
+ * picked any tag it stands for. "cooking" implies Groceries, "music" implies
+ * both Subscriptions and Hangouts.
+ */
+export function preferredCategories(interests: string[]): CategoryId[] {
+	const picked = new Set(interests.map((i) => i.trim().toLowerCase()));
+	return CATEGORIES.filter((c) =>
+		(CATEGORY_INTERESTS[c.id] ?? []).some((tag) => picked.has(tag))
+	).map((c) => c.id);
 }
 
 /** 1 next door, tapering to 0 at ~60 miles. */
@@ -66,8 +100,10 @@ export function relevance(viewer: MatchViewer, target: MatchTarget, now = Date.n
 	const tags = viewer.interests ?? [];
 	if (tags.length === 0) return 0.6 * proximity + 0.4 * urgency;
 
-	const interest = jaccardSimilarity(tags, target.interests);
-	return 0.55 * interest + 0.25 * proximity + 0.2 * urgency;
+	const interest = jaccardSimilarity(tags, effectiveTags(target));
+	const category = preferredCategories(tags).includes(target.category) ? 1 : 0;
+
+	return 0.45 * interest + 0.2 * category + 0.2 * proximity + 0.15 * urgency;
 }
 
 /** Sorted copy, best match first, ties broken by whichever starts sooner. */
@@ -81,7 +117,8 @@ export function rankByRelevance<T extends MatchTarget>(viewer: MatchViewer, item
 /** "82% match" — only worth showing when the viewer actually took the survey. */
 export function matchPercent(viewer: MatchViewer, target: MatchTarget): number | null {
 	if (!viewer.interests?.length) return null;
-	const shared = jaccardSimilarity(viewer.interests, target.interests);
-	if (shared === 0) return null;
+	const onTags = jaccardSimilarity(viewer.interests, effectiveTags(target)) > 0;
+	const onCategory = preferredCategories(viewer.interests).includes(target.category);
+	if (!onTags && !onCategory) return null;
 	return Math.round(relevance(viewer, target) * 100);
 }
