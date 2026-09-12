@@ -67,5 +67,5 @@ Open **Profile** on the Demo account to see a garden that’s already growing.
 | App / API | SvelteKit 2 |
 | Data | MongoDB Atlas |
 | Auth | Auth0 |
-| Matching | Interests + campus + budget + distance |
-| Email | Optional [Resend](https://resend.com) on join |
+| Matching | Gemini API |
+| Email | Resend |
