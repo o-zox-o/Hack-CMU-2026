@@ -188,7 +188,7 @@ export interface User {
 export interface UserDoc extends User {
   email: string;
   passwordHash: string;
-  auth0Id: string; // <-- Place it here! Stored safely on the server
+  auth0Id: string; //needs to be only on server
 }
 
 export interface SignupInput {
@@ -206,26 +206,21 @@ export interface SignupInput {
 export type CostBasis = 'per-person' | 'total';
 
 /** Stored shape. Server-only — never hand this straight to a page. */
-export interface Activity {
-	id: string;
-	title: string;
-	body: string;
-	category: CategoryId;
-	campus: CampusId;
-	hostId: string;
-	/** Free-text meeting point, e.g. "Giant Eagle, Shadyside". */
-	location: string;
-	/** ISO 8601. */
-	startsAt: string;
-	/** Total headcount including the host. */
-	spots: number;
-	/** Everyone in, host first. Length must never exceed `spots`. */
-	memberIds: string[];
-	/** Integer cents. NEVER a float — money math on floats drifts. */
-	costCents: number;
-	costBasis: CostBasis;
-	createdAt: string;
-}
+export type Activity = {
+  id: string;
+  ownerId: string;
+  title: string;
+  destination: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  budget: number;
+  interests: string[];
+
+  memberIds: string[];
+  maxMembers?: number;
+};
+
 
 /** Wire/UI shape. Safe to serialise into a page payload. */
 export interface ActivityView {
