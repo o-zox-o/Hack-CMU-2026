@@ -36,6 +36,8 @@ export function fallbackUser(id: string): User {
 		name: 'Deleted user',
 		handle: 'deleted',
 		campus: 'cmu',
+		location: '',
+		interests: [],
 		bio: '',
 		avatarSeed: 0,
 		joinedAt: new Date(0).toISOString()
@@ -61,6 +63,8 @@ export function newUserDoc(input: SignupInput, handle: string, avatarSeed: numbe
 		email: input.email.toLowerCase(),
 		passwordHash: hashPassword(input.password),
 		campus: input.campus,
+		location: '',
+		interests: [],
 		bio: '',
 		avatarSeed,
 		joinedAt: new Date().toISOString()
@@ -83,6 +87,7 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 		memberIds: [hostId], // the host occupies one spot
 		costCents: input.costCents,
 		costBasis: input.costBasis,
+		interests: [],
 		createdAt: new Date().toISOString()
 	};
 }
@@ -138,7 +143,8 @@ export function toView(
 		spotsLeft: Math.max(0, activity.spots - spotsTaken),
 		isFull: spotsTaken >= activity.spots,
 		joined: viewerId ? activity.memberIds.includes(viewerId) : false,
-		isHost: viewerId ? activity.hostId === viewerId : false
+		isHost: viewerId ? activity.hostId === viewerId : false,
+		interests: activity.interests
 	};
 }
 

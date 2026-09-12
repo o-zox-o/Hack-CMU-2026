@@ -15,8 +15,18 @@
 /* -------------------------------------------------------------------------- */
 
 export const CATEGORIES = [
-	{ id: 'subscriptions', label: 'Subscriptions', emoji: '🎧', blurb: 'Spotify, Netflix, Duolingo — split the family plan' },
-	{ id: 'groceries', label: 'Groceries', emoji: '🛒', blurb: 'Costco runs, bulk buys, produce splits' },
+	{
+		id: 'subscriptions',
+		label: 'Subscriptions',
+		emoji: '🎧',
+		blurb: 'Spotify, Netflix, Duolingo — split the family plan'
+	},
+	{
+		id: 'groceries',
+		label: 'Groceries',
+		emoji: '🛒',
+		blurb: 'Costco runs, bulk buys, produce splits'
+	},
 	{ id: 'rides', label: 'Rides', emoji: '🚗', blurb: 'Airport Ubers, carpools, weekend trips' },
 	{ id: 'food', label: 'Food orders', emoji: '🍜', blurb: 'Hit the delivery minimum together' },
 	{ id: 'supplies', label: 'Supplies', emoji: '📦', blurb: 'IKEA hauls, dorm stuff, textbooks' },
@@ -40,13 +50,62 @@ export function isCategoryId(value: unknown): value is CategoryId {
 /* -------------------------------------------------------------------------- */
 
 export const CAMPUSES = [
-	{ id: 'cmu', label: 'Carnegie Mellon', short: 'CMU', city: 'Pittsburgh', lat: 40.4433, lng: -79.9436 },
-	{ id: 'pitt', label: 'University of Pittsburgh', short: 'Pitt', city: 'Pittsburgh', lat: 40.4444, lng: -79.9608 },
-	{ id: 'chatham', label: 'Chatham University', short: 'Chatham', city: 'Pittsburgh', lat: 40.4497, lng: -79.9235 },
-	{ id: 'duquesne', label: 'Duquesne University', short: 'Duquesne', city: 'Pittsburgh', lat: 40.4364, lng: -79.9917 },
-	{ id: 'carlow', label: 'Carlow University', short: 'Carlow', city: 'Pittsburgh', lat: 40.4394, lng: -79.9631 },
-	{ id: 'wvu', label: 'West Virginia University', short: 'WVU', city: 'Morgantown', lat: 39.6354, lng: -79.9553 },
-	{ id: 'psu', label: 'Penn State', short: 'PSU', city: 'State College', lat: 40.7982, lng: -77.8599 }
+	{
+		id: 'cmu',
+		label: 'Carnegie Mellon',
+		short: 'CMU',
+		city: 'Pittsburgh',
+		lat: 40.4433,
+		lng: -79.9436
+	},
+	{
+		id: 'pitt',
+		label: 'University of Pittsburgh',
+		short: 'Pitt',
+		city: 'Pittsburgh',
+		lat: 40.4444,
+		lng: -79.9608
+	},
+	{
+		id: 'chatham',
+		label: 'Chatham University',
+		short: 'Chatham',
+		city: 'Pittsburgh',
+		lat: 40.4497,
+		lng: -79.9235
+	},
+	{
+		id: 'duquesne',
+		label: 'Duquesne University',
+		short: 'Duquesne',
+		city: 'Pittsburgh',
+		lat: 40.4364,
+		lng: -79.9917
+	},
+	{
+		id: 'carlow',
+		label: 'Carlow University',
+		short: 'Carlow',
+		city: 'Pittsburgh',
+		lat: 40.4394,
+		lng: -79.9631
+	},
+	{
+		id: 'wvu',
+		label: 'West Virginia University',
+		short: 'WVU',
+		city: 'Morgantown',
+		lat: 39.6354,
+		lng: -79.9553
+	},
+	{
+		id: 'psu',
+		label: 'Penn State',
+		short: 'PSU',
+		city: 'State College',
+		lat: 40.7982,
+		lng: -77.8599
+	}
 ] as const;
 
 export type CampusId = (typeof CAMPUSES)[number]['id'];
@@ -57,6 +116,26 @@ export function campusMeta(id: CampusId) {
 
 export function isCampusId(value: unknown): value is CampusId {
 	return typeof value === 'string' && CAMPUSES.some((c) => c.id === value);
+}
+
+export interface LatLng {
+	lat: number;
+	lng: number;
+}
+
+/** Feed radius choices. `miles: null` means no limit. */
+export const RADII = [
+	{ id: '10', miles: 10, label: '10 mi' },
+	{ id: '50', miles: 50, label: '50 mi' },
+	{ id: '150', miles: 150, label: '150 mi' },
+	{ id: 'all', miles: null, label: 'Anywhere' }
+] as const;
+
+export type RadiusId = (typeof RADII)[number]['id'];
+export const DEFAULT_RADIUS: RadiusId = '10';
+
+export function isRadiusId(value: unknown): value is RadiusId {
+	return typeof value === 'string' && RADII.some((r) => r.id === value);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -83,7 +162,8 @@ export interface User {
 export interface UserDoc extends User {
 	email: string;
 	passwordHash: string;
-	auth0Id: string;
+	/** Set by Auth0 on first login. Absent for password accounts + seed data. */
+	auth0Id?: string;
 }
 
 export interface SignupInput {
@@ -142,4 +222,64 @@ export interface ActivityView {
 	joined: boolean;
 	isHost: boolean;
 	interests: string[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Comments                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export interface Comment {
+	id: string;
+	activityId: string;
+	authorId: string;
+	body: string;
+	createdAt: string;
+}
+
+export interface CommentView {
+	id: string;
+	body: string;
+	createdAt: string;
+	author: User;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Query + input shapes                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const SORTS = [
+	{ id: 'soonest', label: 'Soonest' },
+	{ id: 'nearest', label: 'Nearest' },
+	{ id: 'cheapest', label: 'Cheapest' },
+	{ id: 'new', label: 'New' }
+] as const;
+
+export type SortId = (typeof SORTS)[number]['id'];
+
+export function isSortId(value: unknown): value is SortId {
+	return typeof value === 'string' && SORTS.some((s) => s.id === value);
+}
+
+export interface FeedQuery {
+	category?: CategoryId;
+	/** An explicit single campus. Overrides `within`. */
+	campus?: CampusId;
+	/** Radius around the viewer's location. Defaults to DEFAULT_RADIUS. */
+	within?: RadiusId;
+	/** Only activities that cost nothing — free food, giveaways. */
+	free?: boolean;
+	q?: string;
+	sort?: SortId;
+}
+
+export interface NewActivityInput {
+	title: string;
+	body: string;
+	category: CategoryId;
+	campus: CampusId;
+	location: string;
+	startsAt: string;
+	spots: number;
+	costCents: number;
+	costBasis: CostBasis;
 }
