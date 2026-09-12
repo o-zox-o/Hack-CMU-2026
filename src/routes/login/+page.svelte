@@ -12,12 +12,13 @@
 	/* Signup is two steps: fill the form, then enter the code we emailed.
 	   $state (not $derived) because "‹ Back" needs to leave verify without a
 	   new form result to react to — but it does need to react to a fresh
-	   result, e.g. going form -> verify on a successful signup submit, or
-	   staying on verify after a wrong code. */
+	   result either direction: form -> verify on a successful signup submit,
+	   staying on verify after a wrong code, or back to form if the email
+	   turned out to be taken (nowhere on the verify step to show that). */
 	// svelte-ignore state_referenced_locally
 	let step = $state<'form' | 'verify'>(form?.step === 'verify' ? 'verify' : 'form');
 	$effect(() => {
-		if (form?.step === 'verify') step = 'verify';
+		if (form?.step === 'verify' || form?.step === 'form') step = form.step;
 	});
 	let errors = $derived<AuthErrors>(form?.errors ?? {});
 	let busy = $state(false);

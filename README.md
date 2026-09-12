@@ -1,93 +1,131 @@
 # tagalong
 
-Post the thing you were going to do anyway — a Costco run, an airport Uber, a Spotify family plan — and let people on your campus tag along and split the cost.
+**Find people to actually hang out with — then split the Costco run on the way.**
 
-SvelteKit 2 · Svelte 5 (runes) · Tailwind 4 · TypeScript. Hack CMU 2026.
+tagalong is a campus social feed: karaoke, hikes, board games, study nights, plus the errands and rides you’d do anyway. Post a plan, match with people nearby who are into the same stuff, and go. Built for **Hack CMU 2026**.
 
-## Run it
+The punchline is **touch grass**. Every hangout or activity you join plants a blade on your profile. Your garden grows, badges drop, and joining rains grass across the screen. The point isn’t the receipt — it’s getting out of the dorm.
+
+SvelteKit · Svelte 5 · Tailwind 4 · TypeScript · MongoDB (optional locally)
+
+---
+
+## For judges — run it in two minutes
+
+You do **not** need MongoDB, Auth0, or an email key. With no env vars, the app uses an in-memory store and seeds demo people and activities automatically.
+
+```bash
+git clone https://github.com/o-zox-o/Hack-CMU-2026.git
+cd Hack-CMU-2026
+npm install
+npm run dev
+```
+
+Open **[http://localhost:5173](http://localhost:5173)**.
+
+### Demo login
+
+|          |                      |
+| -------- | -------------------- |
+| Email    | `mei@andrew.cmu.edu` |
+| Password | `tagalong`           |
+
+Every seeded account uses the same password. Other useful logins:
+
+- `satsuki@andrew.cmu.edu` (CMU)
+- `kanta@pitt.edu` (Pitt)
+- `ava@psu.edu` (Penn State)
+
+Or create a new account from Sign up (`.edu` emails). New accounts get a short interest survey so the feed can rank hangouts for them.
+
+### What to click through
+
+1. **For you (`/`)** — a mixed feed of hangouts and practical plans, ranked for this user. Look for **% match** on cards. Filter **Hangouts**, or Costco / rides / food if you want the utility side. Radius: 10 / 50 / 150 mi / anywhere.
+2. **Open a hangout** — who’s going, comments, join. Joining should celebrate (**you touched grass**) and rain grass.
+3. **Profile** — **Grass touched** score, the growing garden (bare patch → meadow), and badges like First blade, Actually outside, Green thumb, Top grass toucher.
+4. **Post** — host a hangout or a split-the-cost run.
+5. Allow location if asked — otherwise it uses your campus.
+
+Data resets when you stop the dev server in in-memory mode. That’s expected.
+
+---
+
+## What it is
+
+College group chats are how people make plans _and_ how they never make it out. tagalong is the public version:
+
+- **Hangouts first** — karaoke, hikes, game nights, watch parties, not only bulk buys.
+- **People, not just spots** — interest survey on signup, match % on the feed, so you find folks you’d actually spend an afternoon with.
+- **Split when it helps** — Costco, Ubers, Spotify, delivery minimums still live here. Same join flow.
+- **Touch grass** — each activity you’re in is a blade. Profile garden + badges. Join animation so it feels like going outside, not filing a form.
+- **Campus-aware** — CMU, Pitt, Chatham, Duquesne, Carlow, WVU, Penn State, with distance on every card.
+
+---
+
+## Touch grass (gamification)
+
+|        |                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------ |
+| Score  | Hosted + joined activities                                                                                   |
+| Garden | Grows from bare patch → seedling → sprouting → lawn → in bloom → wildflower meadow                           |
+| Badges | First blade, Regular, Certified outside, Green thumb (host), Actually outside (hangouts), plus category ones |
+| Live   | Grass rain + “you touched grass” when you join                                                               |
+
+Open **Profile** on the Mei account to see a garden that’s already growing.
+
+---
+
+## Stack
+
+| Layer     | Choice                                                       |
+| --------- | ------------------------------------------------------------ |
+| UI        | Svelte 5 (runes) + Tailwind 4                                |
+| App / API | SvelteKit 2                                                  |
+| Data      | In-memory for local demo; MongoDB Atlas in production        |
+| Auth      | Session cookie (scrypt). Optional Auth0 email code on signup |
+| Matching  | Interests + campus + budget + distance                       |
+| Email     | Optional [Resend](https://resend.com) on join                |
+
+---
+
+## Local setup (more detail)
+
+**Need:** Node.js 20+ and npm.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run check      # svelte-check (types + template errors)
-npm run lint       # prettier + eslint
+npm run dev          # http://localhost:5173
+npm run check        # types + Svelte
+npm run lint
 ```
 
-With no `MONGODB_URI` set it runs on an in-memory store with seeded users and activities — fine for local hacking, but everything resets when the process restarts. Log in as `mei@andrew.cmu.edu` / `tagalong` (every seeded account uses that password), or sign up.
+### Optional `.env`
 
-To run against MongoDB locally, copy `.env.example` to `.env` and fill in `MONGODB_URI`. An empty database is seeded with the same demo data on first connect. Data survives hot reloads but resets when the dev server restarts.
+Copy `.env.example` → `.env` only if you want persistence or extra features.
 
-## Where things live
+| Variable                        | What it does                                                           |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| _(none)_                        | In-memory demo. Fastest path for judging.                              |
+| `MONGODB_URI` + `MONGODB_DB`    | Persist to Atlas. Empty DB is seeded on first connect.                 |
+| `SESSION_SECRET`                | Signs the login cookie. Dev has a fallback; set this before deploying. |
+| `RESEND_API_KEY` + `EMAIL_FROM` | Email host + joiner on join. Without a key, joins still work.          |
+| `AUTH0_*`                       | Signup email verification. Seeded logins don’t need this.              |
 
-```
-src/
-├── routes/
-│   ├── (app)/+layout.svelte      app shell: header · side nav · feed · right rail · mobile tab bar
-│   ├── +page.svelte              the feed — campuses within 10 mi of you (?within=50|150|all &campus= &category= &free=1 &q= &sort=)
-│   ├── activities/new/           create form  (+page.server.ts = form action)
-│   ├── activities/[id]/          detail, join/leave, comments
-│   ├── profile/                  your hosted + joined activities, log out
-│   ├── login/                    log in / sign up (outside the app shell)
-│   ├── api/activities/           GET list / POST create (JSON)
-│   └── layout.css                the theme — palette, fluid type, dark mode, .leaf-card/.btn/.field
-├── lib/
-│   ├── types.ts                  Activity / User / categories / campuses — single source of truth
-│   ├── format.ts                 money (integer cents), dates, "2h ago"
-│   ├── validate.ts               new-activity validation shared by the form and the API
-│   ├── geo.ts                    haversine, campuses-by-distance, the `loc` cookie
-│   ├── feed-query.ts             URL params -> FeedQuery
-│   ├── components/               ActivityCard, JoinButton, AppHeader, SideNav, …
-│   └── server/
-│       ├── auth.ts               password hashing + signed session cookie
-│       ├── db.ts                 picks a backend from MONGODB_URI; routes import from here
-│       ├── seed.ts               demo users/activities (loaded by both backends)
-│       └── store/
-│           ├── types.ts          the Store interface every backend implements
-│           ├── shared.ts         doc -> view builders, feed sort, new-doc factories
-│           ├── memory.ts         in-memory backend (local dev)
-│           └── mongo.ts          MongoDB backend (production)
-└── hooks.server.ts               session cookie -> locals.user; redirects to /login when signed out
-```
+The terminal prints which backend started, e.g. `[db] backend: in-memory` or `MongoDB (tagalong)`.
 
-## Location
+---
 
-The feed is "activities at campuses near you". `CAMPUSES` in `types.ts` carry coordinates; `LocationSync.svelte` asks the browser for a position once and stores `lat,lng` in a `loc` cookie; `hooks.server.ts` turns that into `locals.location` (falling back to your campus). `listActivities` filters to campuses within the chosen radius and every `ActivityView` gets `distanceMiles`.
+## Deploy (Vercel)
 
-## Rules of the codebase
+The in-memory store **does not work on Vercel** (each request can hit a fresh instance). Production needs MongoDB.
 
-- **`Activity` (stored) and `ActivityView` (wire) are different types.** `toView()` in `db.ts` is the only crossing point. Pages and components only ever see `ActivityView`.
-- **Money is integer cents.** `costCents: 1250`, never `12.5`. Format with `formatCents()`.
-- **Joining must stay atomic.** `joinActivity()` checks capacity and writes in one step. When it becomes a Mongo query, keep the capacity check _inside_ the `findOneAndUpdate` filter.
-- **Use semantic colour classes** (`bg-surface`, `text-ink`, `border-hedge`, `bg-brand`), not raw palette ones. Dark mode is handled once in `layout.css`; nothing else needs `dark:`.
-- **Svelte 5 props:** `interface Props {…}` then `let { x }: Props = $props()`.
+1. Atlas free cluster → database user → network access `0.0.0.0/0` → copy the connection URI.
+2. Vercel → Project → Settings → Environment Variables (Production **and** Preview):
+   - `MONGODB_URI`
+   - `MONGODB_DB` = `tagalong`
+   - `SESSION_SECRET` = `openssl rand -hex 32`
+3. Redeploy after adding env vars. First request seeds demo data if the database is empty.
 
-## Deploying (Vercel)
+---
 
-The in-memory store **does not work on Vercel**: each request can land on a fresh serverless instance with empty memory, so sign-ups vanish and sessions stop resolving. Production needs MongoDB.
-
-1. **Atlas**: create a free cluster → Database Access: add a user → Network Access: allow `0.0.0.0/0` (Vercel's IPs change) → Connect → Drivers → copy the URI.
-2. **Vercel → Project → Settings → Environment Variables**, for Production _and_ Preview:
-   - `MONGODB_URI` — the Atlas URI with your password filled in
-   - `MONGODB_DB` — `tagalong`
-   - `SESSION_SECRET` — `openssl rand -hex 32`
-3. Redeploy (env changes don't apply to existing deployments). The first request seeds the demo data if the database is empty, and the function log prints `[db] backend: MongoDB (tagalong)`.
-
-`hooks.server.ts` sets the session cookie with `secure: true` outside dev, which Vercel's HTTPS satisfies.
-
-## Email
-
-Joining an activity sends two messages through Resend's HTTP API (no SDK):
-the host gets "X joined your activity", and the person joining gets a
-confirmation with when, where, their share of the cost, and who's hosting.
-
-Set `RESEND_API_KEY` in `.env` / Vercel to turn it on. Without a key both are
-logged instead of sent, so joining behaves identically either way, and a mail
-failure can never fail a join. `EMAIL_FROM` must be a verified domain to reach
-anyone — Resend's default sandbox sender only delivers to the account owner.
-
-## Backend notes
-
-- Documents use our string ids as `_id` (`u_mei`, `a_costco`), so no ObjectId conversion anywhere.
-- `joinActivity` is one `findOneAndUpdate` with the capacity check in the filter — keep it that way; read-then-write lets two people take the last spot.
-- Unique indexes on `users.email` and `users.handle`; `createUser` relies on the duplicate-key error rather than find-then-insert.
-- To add a backend (Postgres, whatever): implement `Store` from `store/types.ts`, reuse `store/shared.ts`, pick it in `db.ts`.
+Hack CMU 2026 · Touch grass with people from the next campus over.

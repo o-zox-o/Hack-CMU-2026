@@ -18,7 +18,7 @@ export interface SeedData {
 	comments: Comment[];
 }
 
-/** Password for every seeded account — shown on the login page in dev. */
+/** Password for every seeded account shown on the login page in dev. */
 export const DEMO_PASSWORD = 'tagalong';
 
 /** Minutes/hours/days from "now", so seed data never goes stale. */

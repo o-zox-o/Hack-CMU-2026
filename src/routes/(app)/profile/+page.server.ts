@@ -1,3 +1,5 @@
+import { generateTags } from '$lib/server/ai';
+
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { clearSessionCookie } from '$lib/server/auth';
@@ -36,11 +38,20 @@ export const load = (async ({ locals }) => {
 export const actions = {
 	profile: async ({ request, locals }) => {
 		const form = await request.formData();
+		const bio = String(form.get('bio') ?? '')
+			.trim()
+			.slice(0, 300);
+
+		//Use ai.ts
+		//Merge checkboxes with AI tags, deduplicate, and limit to 12
+		const aiTags = await generateTags(bio);
+
+		const formInterests = form.getAll('interests').filter(isInterest);
+		const combinedInterests = [...new Set([...formInterests, ...aiTags])].slice(0, 12);
+
 		await updateProfile(locals.user.id, {
-			bio: String(form.get('bio') ?? '')
-				.trim()
-				.slice(0, 300),
-			interests: [...new Set(form.getAll('interests').filter(isInterest))].slice(0, 12),
+			bio,
+			interests: combinedInterests,
 			isPrivate: form.get('isPrivate') === 'on'
 		});
 		return { saved: true };

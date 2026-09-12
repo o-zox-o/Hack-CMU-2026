@@ -106,7 +106,9 @@ export function newActivityDoc(input: NewActivityInput, hostId: string): Activit
 		costBasis: input.costBasis,
 		// Untagged activities inherit their category's tags so they can still
 		// be matched against someone's interests.
-		interests: CATEGORY_INTERESTS[input.category] ?? [],
+		interests: input.interests?.length
+			? input.interests
+			: (CATEGORY_INTERESTS[input.category] ?? []),
 		createdAt: new Date().toISOString()
 	};
 }

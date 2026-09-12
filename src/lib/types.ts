@@ -570,6 +570,11 @@ export interface NewActivityInput {
 	costBasis: CostBasis;
 	visibility: Visibility;
 	approvalRequired: boolean;
+	/**
+	 * Tags for feed matching. Optional: supply them (ai.ts generates them from
+	 * the title and body) or leave them out and the category's defaults apply.
+	 */
+	interests?: string[];
 }
 
 /**

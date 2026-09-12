@@ -210,7 +210,7 @@
 			name="title"
 			class="field"
 			bind:value={title}
-			placeholder="Costco run Saturday, I drive, split gas"
+			placeholder="Costco run Saturday. I drive, split gas"
 			maxlength="120"
 			required
 		/>
@@ -246,7 +246,7 @@
 				name="location"
 				class="field"
 				bind:value={location}
-				placeholder="Morewood Ave lot, or “Online”"
+				placeholder="Morewood Ave lot or “Online”"
 				required
 			/>
 			{#if errors.location}<p class={err}>{errors.location}</p>{/if}
