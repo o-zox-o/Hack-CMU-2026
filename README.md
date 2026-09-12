@@ -21,7 +21,7 @@ No database needed yet — it boots on an in-memory store with seeded users and 
 src/
 ├── routes/
 │   ├── (app)/+layout.svelte      app shell: header · side nav · feed · right rail · mobile tab bar
-│   ├── +page.svelte              the feed — your campus by default (?campus=all &category= &free=1 &q= &sort=)
+│   ├── +page.svelte              the feed — campuses within 10 mi of you (?within=50|150|all &campus= &category= &free=1 &q= &sort=)
 │   ├── activities/new/           create form  (+page.server.ts = form action)
 │   ├── activities/[id]/          detail, join/leave, comments
 │   ├── profile/                  your hosted + joined activities, log out
@@ -32,6 +32,7 @@ src/
 │   ├── types.ts                  Activity / User / categories / campuses — single source of truth
 │   ├── format.ts                 money (integer cents), dates, "2h ago"
 │   ├── validate.ts               new-activity validation shared by the form and the API
+│   ├── geo.ts                    haversine, campuses-by-distance, the `loc` cookie
 │   ├── feed-query.ts             URL params -> FeedQuery
 │   ├── components/               ActivityCard, JoinButton, AppHeader, SideNav, …
 │   └── server/
@@ -40,6 +41,10 @@ src/
 │       └── mongodb.ts            connection helper, commented out until you `npm i mongodb`
 └── hooks.server.ts               session cookie -> locals.user; redirects to /login when signed out
 ```
+
+## Location
+
+The feed is "activities at campuses near you". `CAMPUSES` in `types.ts` carry coordinates; `LocationSync.svelte` asks the browser for a position once and stores `lat,lng` in a `loc` cookie; `hooks.server.ts` turns that into `locals.location` (falling back to your campus). `listActivities` filters to campuses within the chosen radius and every `ActivityView` gets `distanceMiles`.
 
 ## Rules of the codebase
 

@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { addComment, getActivity, joinActivity, leaveActivity, listComments } from '$lib/server/db';
 
 export const load = (({ params, locals }) => {
-	const activity = getActivity(params.id, locals.user.id);
+	const activity = getActivity(params.id, { id: locals.user.id, location: locals.location });
 	if (!activity) error(404, 'That activity does not exist (or was removed).');
 
 	return { activity, comments: listComments(params.id) };

@@ -6,7 +6,8 @@ import { validateNewActivity } from '$lib/validate';
 
 /** GET /api/activities?category=&campus=&q=&sort= — same filters as the feed. */
 export const GET: RequestHandler = ({ url, locals }) => {
-	return json(listActivities(feedQueryFromUrl(url, locals.user.campus), locals.user.id));
+	const viewer = { id: locals.user.id, location: locals.location };
+	return json(listActivities(feedQueryFromUrl(url), viewer));
 };
 
 /** POST /api/activities — JSON body with the same fields as the create form. */

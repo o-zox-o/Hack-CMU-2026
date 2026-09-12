@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import LocationSync from '$lib/components/LocationSync.svelte';
 	import MobileTabBar from '$lib/components/MobileTabBar.svelte';
 	import RightRail from '$lib/components/RightRail.svelte';
 	import SideNav from '$lib/components/SideNav.svelte';
@@ -13,6 +14,9 @@
 	afterNavigate(() => (drawerOpen = false));
 </script>
 
+<!-- Asks the browser for a position once and stores it in the `loc` cookie. -->
+<LocationSync auto source={data.locationSource} />
+
 <AppHeader user={data.user} onmenu={() => (drawerOpen = true)} />
 
 <!-- Reddit's three-column shell: nav · feed · rail. Columns drop off as the
@@ -20,7 +24,7 @@
 <div class="mx-auto flex w-full max-w-[1280px] justify-center gap-6 px-gutter pt-4 pb-24 md:pb-8">
 	<div class="hidden w-56 shrink-0 lg:block">
 		<div class="sticky top-[4.5rem]">
-			<SideNav user={data.user} />
+			<SideNav user={data.user} campuses={data.campuses} />
 		</div>
 	</div>
 
@@ -30,7 +34,11 @@
 
 	<div class="hidden w-[300px] shrink-0 xl:block">
 		<div class="sticky top-[4.5rem]">
-			<RightRail user={data.user} openOnCampus={data.openOnCampus} />
+			<RightRail
+				openNearby={data.openNearby}
+				locationSource={data.locationSource}
+				nearest={data.campuses[0]}
+			/>
 		</div>
 	</div>
 </div>
@@ -57,7 +65,7 @@
 					<Icon name="close" size={20} />
 				</button>
 			</div>
-			<SideNav user={data.user} />
+			<SideNav user={data.user} campuses={data.campuses} />
 		</div>
 	</div>
 {/if}

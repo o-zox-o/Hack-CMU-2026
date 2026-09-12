@@ -13,12 +13,14 @@ import {
 	type Comment,
 	type CommentView,
 	type FeedQuery,
+	type LatLng,
 	type NewActivityInput,
 	type SignupInput,
 	type User,
 	type UserDoc
 } from '$lib/types';
 import { perPersonCents } from '$lib/format';
+import { campusesWithin, distanceToCampus } from '$lib/geo';
 import { hashPassword, verifyPassword } from './auth';
 
 /* -------------------------------------------------------------------------- */
@@ -26,7 +28,7 @@ import { hashPassword, verifyPassword } from './auth';
 /* -------------------------------------------------------------------------- */
 
 /** Bump this whenever you edit the seed data below so a running dev server re-seeds. */
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 
 interface Store {
 	version: number;
@@ -138,6 +140,28 @@ function seed(): Store {
 			email: 'theo@andrew.cmu.edu',
 			passwordHash: demoHash,
 			joinedAt: hoursAgo(24 * 12)
+		},
+		{
+			id: 'u_ava',
+			name: 'Ava Lindqvist',
+			handle: 'ava',
+			campus: 'psu',
+			bio: 'Penn State. Drives to Pittsburgh most weekends.',
+			avatarSeed: 0,
+			email: 'ava@psu.edu',
+			passwordHash: demoHash,
+			joinedAt: hoursAgo(24 * 20)
+		},
+		{
+			id: 'u_marcus',
+			name: 'Marcus Bell',
+			handle: 'marcus',
+			campus: 'wvu',
+			bio: 'WVU. Bulk-buys everything.',
+			avatarSeed: 5,
+			email: 'marcus@mix.wvu.edu',
+			passwordHash: demoHash,
+			joinedAt: hoursAgo(24 * 9)
 		}
 	];
 
@@ -321,6 +345,36 @@ function seed(): Store {
 			costCents: 0,
 			costBasis: 'per-person',
 			createdAt: hoursAgo(3)
+		},
+		{
+			id: 'a_psu_ride',
+			title: 'State College → Pittsburgh, Friday 4pm, 2 seats',
+			body: 'Driving down for the weekend, coming back Sunday night. Split gas both ways, about $15 each way. Pickup by the HUB.',
+			category: 'rides',
+			campus: 'psu',
+			hostId: 'u_ava',
+			location: 'HUB-Robeson Center, University Park',
+			startsAt: hoursFromNow(90),
+			spots: 3,
+			memberIds: ['u_ava'],
+			costCents: 3000,
+			costBasis: 'per-person',
+			createdAt: hoursAgo(6)
+		},
+		{
+			id: 'a_wvu_sams',
+			title: "Sam's Club run Sunday — Morgantown",
+			body: 'I have the membership and a truck. Three seats, split gas, bring your list. Back by 3.',
+			category: 'groceries',
+			campus: 'wvu',
+			hostId: 'u_marcus',
+			location: 'Mountainlair front steps',
+			startsAt: hoursFromNow(55),
+			spots: 4,
+			memberIds: ['u_marcus'],
+			costCents: 600,
+			costBasis: 'per-person',
+			createdAt: hoursAgo(12)
 		}
 	];
 
@@ -401,9 +455,19 @@ function requireUser(id: string): User {
 	};
 }
 
-export function toView(activity: Activity, viewerId?: string): ActivityView {
+/**
+ * Who's asking. `id` drives joined/isHost; `location` drives distances and
+ * the radius filter. Build one from `locals` in a route and pass it through.
+ */
+export interface Viewer {
+	id: string;
+	location?: LatLng;
+}
+
+export function toView(activity: Activity, viewer?: Viewer): ActivityView {
 	const members = activity.memberIds.map(requireUser);
 	const spotsTaken = activity.memberIds.length;
+	const viewerId = viewer?.id;
 
 	return {
 		id: activity.id,
@@ -420,6 +484,7 @@ export function toView(activity: Activity, viewerId?: string): ActivityView {
 		host: requireUser(activity.hostId),
 		members,
 		commentCount: store.comments.filter((c) => c.activityId === activity.id).length,
+		distanceMiles: viewer?.location ? distanceToCampus(viewer.location, activity.campus) : null,
 		spotsTaken,
 		spotsLeft: Math.max(0, activity.spots - spotsTaken),
 		isFull: spotsTaken >= activity.spots,
@@ -509,12 +574,17 @@ export function createUser(input: SignupInput): SignupResult {
  *   db.activities.find({ campus, category, $text: { $search: q } })
  *                .sort({ startsAt: 1 })
  */
-export function listActivities(query: FeedQuery = {}, viewerId?: string): ActivityView[] {
+export function listActivities(query: FeedQuery = {}, viewer?: Viewer): ActivityView[] {
 	const needle = query.q?.trim().toLowerCase();
 
 	let rows = [...store.activities.values()];
 
-	if (query.campus) rows = rows.filter((a) => a.campus === query.campus);
+	if (query.campus) {
+		rows = rows.filter((a) => a.campus === query.campus);
+	} else if (query.within && query.within !== 'all' && viewer?.location) {
+		const nearby = new Set(campusesWithin(viewer.location, query.within));
+		rows = rows.filter((a) => nearby.has(a.campus));
+	}
 	if (query.category) rows = rows.filter((a) => a.category === query.category);
 	if (query.free) rows = rows.filter((a) => a.costCents === 0);
 	if (needle) {
@@ -523,19 +593,22 @@ export function listActivities(query: FeedQuery = {}, viewerId?: string): Activi
 
 	// "Cheapest" ranks by what one person pays if the group fills.
 	const perHead = (a: Activity) => perPersonCents(a.costCents, a.costBasis, a.spots);
+	const miles = (a: Activity) =>
+		viewer?.location ? distanceToCampus(viewer.location, a.campus) : 0;
 	const sort = query.sort ?? 'soonest';
 	rows.sort((a, b) => {
 		if (sort === 'new') return b.createdAt.localeCompare(a.createdAt);
 		if (sort === 'cheapest') return perHead(a) - perHead(b) || a.startsAt.localeCompare(b.startsAt);
+		if (sort === 'nearest') return miles(a) - miles(b) || a.startsAt.localeCompare(b.startsAt);
 		return a.startsAt.localeCompare(b.startsAt);
 	});
 
-	return rows.map((a) => toView(a, viewerId));
+	return rows.map((a) => toView(a, viewer));
 }
 
-export function getActivity(id: string, viewerId?: string): ActivityView | null {
+export function getActivity(id: string, viewer?: Viewer): ActivityView | null {
 	const activity = store.activities.get(id);
-	return activity ? toView(activity, viewerId) : null;
+	return activity ? toView(activity, viewer) : null;
 }
 
 export function listComments(activityId: string): CommentView[] {
@@ -545,18 +618,18 @@ export function listComments(activityId: string): CommentView[] {
 		.map(toCommentView);
 }
 
-export function activitiesHostedBy(userId: string, viewerId?: string): ActivityView[] {
+export function activitiesHostedBy(userId: string, viewer?: Viewer): ActivityView[] {
 	return [...store.activities.values()]
 		.filter((a) => a.hostId === userId)
 		.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-		.map((a) => toView(a, viewerId));
+		.map((a) => toView(a, viewer));
 }
 
-export function activitiesJoinedBy(userId: string, viewerId?: string): ActivityView[] {
+export function activitiesJoinedBy(userId: string, viewer?: Viewer): ActivityView[] {
 	return [...store.activities.values()]
 		.filter((a) => a.hostId !== userId && a.memberIds.includes(userId))
 		.sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-		.map((a) => toView(a, viewerId));
+		.map((a) => toView(a, viewer));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -581,7 +654,7 @@ export function createActivity(input: NewActivityInput, hostId: string): Activit
 	};
 
 	store.activities.set(activity.id, activity);
-	return toView(activity, hostId);
+	return toView(activity, { id: hostId });
 }
 
 export type JoinResult =
@@ -608,7 +681,7 @@ export function joinActivity(id: string, userId: string): JoinResult {
 	if (activity.memberIds.length >= activity.spots) return { ok: false, reason: 'full' };
 
 	activity.memberIds.push(userId);
-	return { ok: true, activity: toView(activity, userId) };
+	return { ok: true, activity: toView(activity, { id: userId }) };
 }
 
 export type LeaveResult =
@@ -622,7 +695,7 @@ export function leaveActivity(id: string, userId: string): LeaveResult {
 	if (!activity.memberIds.includes(userId)) return { ok: false, reason: 'not-a-member' };
 
 	activity.memberIds = activity.memberIds.filter((m) => m !== userId);
-	return { ok: true, activity: toView(activity, userId) };
+	return { ok: true, activity: toView(activity, { id: userId }) };
 }
 
 export function addComment(activityId: string, authorId: string, body: string): CommentView | null {

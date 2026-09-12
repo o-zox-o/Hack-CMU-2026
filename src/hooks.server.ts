@@ -1,6 +1,7 @@
 import { json, redirect, type Handle } from '@sveltejs/kit';
 import { readSessionToken, SESSION_COOKIE } from '$lib/server/auth';
 import { getUser } from '$lib/server/db';
+import { campusLocation, LOCATION_COOKIE, parseLatLng } from '$lib/geo';
 
 /**
  * Resolve the session cookie to a user on every request.
@@ -29,6 +30,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Null only on /login, which never reads it; every other route is guarded above.
 	event.locals.user = user!;
+
+	// The browser writes a `loc` cookie once it has a GPS fix (LocationSync.svelte).
+	// Until then, "near you" means near your campus.
+	const gps = parseLatLng(event.cookies.get(LOCATION_COOKIE));
+	if (gps) {
+		event.locals.location = gps;
+		event.locals.locationSource = 'gps';
+	} else if (user) {
+		event.locals.location = campusLocation(user.campus);
+		event.locals.locationSource = 'campus';
+	}
 
 	return resolve(event);
 };

@@ -4,9 +4,10 @@ import { clearSessionCookie } from '$lib/server/auth';
 import { activitiesHostedBy, activitiesJoinedBy } from '$lib/server/db';
 
 export const load = (({ locals }) => {
+	const viewer = { id: locals.user.id, location: locals.location };
 	return {
-		hosting: activitiesHostedBy(locals.user.id, locals.user.id),
-		joined: activitiesJoinedBy(locals.user.id, locals.user.id)
+		hosting: activitiesHostedBy(locals.user.id, viewer),
+		joined: activitiesJoinedBy(locals.user.id, viewer)
 	};
 }) satisfies PageServerLoad;
 
