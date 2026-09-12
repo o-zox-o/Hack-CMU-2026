@@ -1,70 +1,77 @@
 // src/lib/matching.ts
-import type { User, ActivityView, Activity } from './types';
+import type { User, ActivityView } from './types';
 
-// 1. Jaccard Similarity for Tag/Interest Sets
-export function jaccardSimilarity(arrA: string[], arrB: string[]): number {
-  if (!arrA.length || !arrB.length) return 0;
-  const setA = new Set(arrA.map((s) => s.toLowerCase()));
-  const setB = new Set(arrB.map((s) => s.toLowerCase()));
-  const intersection = [...setA].filter((x) => setB.has(x)).length;
-  const union = new Set([...setA, ...setB]).size;
-  return union === 0 ? 0 : intersection / union;
+// 1. Tag Similarity: Overlap coverage (avoids penalizing users with many interests)
+export function activityTagCoverage(userInterests: string[], activityInterests: string[]): number {
+	if (!activityInterests || !activityInterests.length) return 0.5;
+	if (!userInterests || !userInterests.length) return 0;
+
+	const userSet = new Set(userInterests.map((s) => s.toLowerCase()));
+	const matches = activityInterests.filter((tag) => userSet.has(tag.toLowerCase())).length;
+
+	return matches / activityInterests.length;
 }
 
-// 2. Interpersonal Synergy (Applicant vs. Host)
+// 2. User vs Host Interpersonal Fit (Jaccard for mutual interests + Campus affinity)
 export function calculateUserFit(applicant: User, host: User): number {
-  const interestScore = jaccardSimilarity(applicant.interests, host.interests);
+	if (!applicant.interests?.length || !host.interests?.length) {
+		return applicant.campus === host.campus ? 1.0 : 0.7;
+	}
 
-  // University affinity using CampusId ('cmu', 'pitt', etc.)
-  const sameSchool = applicant.campus === host.campus;
-  const schoolBonus = sameSchool ? 1.0 : 0.7;
+	const setA = new Set(applicant.interests.map((s) => s.toLowerCase()));
+	const setB = new Set(host.interests.map((s) => s.toLowerCase()));
+	const intersection = [...setA].filter((x) => setB.has(x)).length;
+	const union = new Set([...setA, ...setB]).size;
+	const interestScore = union === 0 ? 0 : intersection / union;
 
-  return 0.75 * interestScore + 0.25 * schoolBonus;
+	const schoolBonus = applicant.campus === host.campus ? 1.0 : 0.7;
+	return 0.75 * interestScore + 0.25 * schoolBonus;
 }
 
-// 3. Activity Fit (Handles ActivityView from the UI feed or raw Activity)
+// 3. Activity Fit (Directly evaluates pre-computed ActivityView fields)
 export function calculateActivityFit(
-  applicant: User,
-  activity: ActivityView | Activity,
-  applicantBudgetDollars?: number
+	applicant: User,
+	activity: ActivityView,
+	applicantBudgetDollars?: number
 ): number {
-  // Hard Constraint: Full capacity check
-  if ('isFull' in activity && activity.isFull) return 0;
-  if ('memberIds' in activity && activity.memberIds.length >= activity.spots) return 0;
+	// Precomputed hard constraint from server
+	if (activity.isFull) return 0;
 
-  // Soft Score A: Category or Tag Overlap
-  const hasCategory = applicant.interests.some(
-    (i) => i.toLowerCase() === activity.category.toLowerCase()
-  );
-  const interestScore = hasCategory ? 1.0 : 0.4;
+	// Tag similarity with fallback to category match
+	let interestScore = 0;
+	if (activity.interests && activity.interests.length > 0) {
+		interestScore = activityTagCoverage(applicant.interests, activity.interests);
+	} else if (activity.category) {
+		const hasCategory = applicant.interests.some(
+			(i) => i.toLowerCase() === activity.category.toLowerCase()
+		);
+		interestScore = hasCategory ? 0.9 : 0.4;
+	}
 
-  // Soft Score B: Budget alignment
-  if (applicantBudgetDollars === undefined || applicantBudgetDollars === null) {
-    return interestScore;
-  }
+	if (applicantBudgetDollars === undefined || applicantBudgetDollars === null) {
+		return interestScore;
+	}
 
-  // Normalize integer cents into dollars
-  const costDollars = activity.costCents / 100;
+	const costDollars = activity.costCents / 100;
+	let budgetScore = 1.0;
+	if (costDollars > 0) {
+		const diffRatio = Math.abs(applicantBudgetDollars - costDollars) / costDollars;
+		budgetScore = Math.max(0, 1 - diffRatio);
+	}
 
-  let budgetScore = 1.0;
-  if (costDollars > 0) {
-    const diffRatio = Math.abs(applicantBudgetDollars - costDollars) / costDollars;
-    budgetScore = Math.max(0, 1 - diffRatio);
-  }
-
-  return 0.7 * interestScore + 0.3 * budgetScore;
+	return 0.7 * interestScore + 0.3 * budgetScore;
 }
 
-// 4. Composite Ranking Score for UI Feeds
+// 4. Primary Ranking Entrypoint for the UI Feed
 export function rankActivityView(
-  viewer: User,
-  activity: ActivityView,
-  viewerBudgetDollars?: number
+	viewer: User,
+	activity: ActivityView,
+	viewerBudgetDollars?: number
 ): number {
-  const actFit = calculateActivityFit(viewer, activity, viewerBudgetDollars);
-  if (actFit === 0) return 0;
+	const actFit = calculateActivityFit(viewer, activity, viewerBudgetDollars);
+	if (actFit === 0) return 0;
 
-  // activity.host is already populated in ActivityView
-  const hostFit = calculateUserFit(viewer, activity.host);
-  return Math.round((0.6 * actFit + 0.4 * hostFit) * 100);
+	// Host is already populated on ActivityView
+	const hostFit = calculateUserFit(viewer, activity.host);
+	return Math.round((0.6 * actFit + 0.4 * hostFit) * 100);
 }
